@@ -4,12 +4,16 @@
 
 Valider une séquence scénarisée qui rompt le rythme du pilotage sans transformer Lunar Courier en collection de mini-jeux indépendants. Le pilotage reste le mode principal ; les autres modes sont des séquences courtes déclenchées par les besoins du récit.
 
+## Accès au prototype
+
+Sur l'écran titre, appuyer sur `E` sur PC pour lancer la salle de démonstration. Cette entrée est volontairement optionnelle : elle ne modifie pas le déroulement normal des 18 missions pendant la phase de test. Sur AKA, ce prototype n'est pas encore associé à un bouton physique.
+
 ## Première tranche verticale
 
 1. **Approche et atterrissage** : réutiliser le gameplay existant, sans changer la physique.
 2. **Transition cinématique 2D** : courte scène en pixel art qui présente une installation silencieuse. Une touche permet d'accélérer le texte, puis de continuer.
-3. **Exploration à pied** : première vue de côté, plus simple à lire sur un écran 320×240 que l'isométrie. Le personnage marche dans une petite salle, peut examiner un terminal et atteindre une sortie. Cette tranche vérifie les transitions et les interactions avant d'investir dans un moteur isométrique.
-4. **Interaction terminal** : mini-jeu de réparation court, avec une solution déterministe et une indication claire des commandes.
+3. **Exploration à pied** : première salle de démonstration en vue de côté, accessible par `E` depuis le titre sur PC. Le personnage marche horizontalement et interagit avec le terminal orange. C'est un prototype visuel préliminaire, pas encore une séquence liée à une mission.
+4. **Interaction terminal** : interaction contextuelle de réparation, déclenchée quand le personnage est proche du terminal. Le mini-jeu de réparation reste à implémenter.
 5. **Retour au récit** : une révélation courte, puis reprise du flux de mission normal.
 
 L'isométrie sera un second prototype distinct : elle demande davantage d'art, de collision et de navigation, et ne doit être engagée qu'après validation de la tranche verticale.
