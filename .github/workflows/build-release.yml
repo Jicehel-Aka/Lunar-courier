@@ -46,14 +46,14 @@ jobs:
 
       - name: Test complet (audio + sauvegarde)
         run: |
-          python3 -I tests/run_tests.py game full > test.log 2>&1 || {
+          python3 tests/run_tests.py game full > test.log 2>&1 || {
             echo "::error title=Test complet (audio + sauvegarde)::$(tail -n 12 test.log | tr '\n' '|' | cut -c1-900)"
             cat test.log; exit 1; }
           tail -n 4 test.log
 
       - name: Test sans audio ni sauvegarde
         run: |
-          python3 -I tests/run_tests.py game noaudio > test.log 2>&1 || {
+          python3 tests/run_tests.py game noaudio > test.log 2>&1 || {
             echo "::error title=Test sans audio ni sauvegarde::$(tail -n 12 test.log | tr '\n' '|' | cut -c1-900)"
             cat test.log; exit 1; }
           tail -n 4 test.log
