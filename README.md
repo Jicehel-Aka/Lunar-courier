@@ -9,9 +9,9 @@ Un seul code pour la **Gamebuino AKA** (runtime [AKA-Love](https://github.com/Ji
 - **PC (tous systemes)** : installer LOVE 11.x puis `love lunar-courier-*.love` (ou `love game`).
 
 ## Langues et clavier
-- **Francais par defaut**, anglais et portugais en option (menu : MENU/Echap puis *Langue*). Textes d'histoire, aide, options et libelles de touches suivent la langue immediatement. Les textes sont dans `game/src/text_fr.lua` / `text_en.lua` ; d'autres langues s'ajoutent en creant `text_xx.lua` et en completant `src/i18n.lua` (portugais : `text_pt.lua` ; DE/ES/IT : **pas encore traduits**).
-- **Clavier PC** : AZERTY (FR, par defaut) ou QWERTY (EN), choisi automatiquement avec la langue tant que vous ne le changez pas dans le menu. AZERTY : Q / D / Z en plus des fleches ; QWERTY : A / D / W.
-- Les libelles affichent la **vraie touche** : sur PC `ESPACE` / `SPACE`, `X`, `C`, `V`, `ECHAP` / `ESC` ; sur AKA `A`, `B`, `C`, `D`, `MENU`. La detection se fait par `love.system.getOS()` ("Other" = AKA-Love).
+- **6 langues** : francais (par defaut), anglais, portugais, allemand, espagnol, italien. Textes d'histoire, aide, options et libelles de touches suivent la langue immediatement. Les textes sont dans `game/src/text_<code>.lua`, l'interface dans `game/src/i18n.lua` (ASCII pur : accents et umlauts sont translitteres, AKA-Love ne les dessine pas). Traductions de DE/ES/IT/PT : a faire relire par des locuteurs natifs.
+- **Clavier PC** : AZERTY (FR), QWERTZ (DE) ou QWERTY (autres langues), choisi automatiquement avec la langue tant que vous ne le changez pas dans le menu. AZERTY : Q / D / Z en plus des fleches ; QWERTY et QWERTZ : A / D / W.
+- Les libelles affichent la **vraie touche** : sur PC `ESPACE` / `SPACE` / `ESPACO` / `LEERTASTE` / `ESPACIO` / `SPAZIO`, `X`, `C`, `V`, `ECHAP` / `ESC` ; sur AKA `A`, `B`, `C`, `D`, `MENU` (les commandes de la console ne changent pas avec la langue). La detection se fait par `love.system.getOS()` ("Other" = AKA-Love).
 
 ## Commandes
 | Action | Console AKA | PC |

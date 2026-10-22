@@ -1102,7 +1102,7 @@ local function drawHelp(promptKey)
     panel(38, 30, 564, 420)
     centered(I.t("help_title"), 44, fonts.f32, {235,244,248})
     local amber, white = {255,188,83}, {198,216,227}
-    local k = I.kb
+    local k = (I.kb == "qwertz") and "qwerty" or I.kb
     local rows = {
         {I.t("help_turn_"..k), white}, {I.t("help_thrust_"..k), white},
         {I.t("help_ok"), white}, {I.t("help_restart"), white}, {I.t("help_music"), white},
@@ -1115,7 +1115,8 @@ local function drawHelp(promptKey)
         centered(r[1], y, fonts.f16, r[2])
         y = y + 24
     end
-    centered(I.t(promptKey), 400, fonts.f24, {65,226,219})
+    local pr = I.t(promptKey)
+    centered(pr, 400, fit(pr, 600, {fonts.f24, fonts.f16}), {65,226,219})
 end
 
 local function drawCredits()
