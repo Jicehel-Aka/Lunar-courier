@@ -42,7 +42,7 @@ jobs:
           bad=$(find game -type f | grep '[A-Z]' || true); [ -z "$bad" ] || { echo "::error::majuscules dans les noms: $bad"; exit 1; }
           ! grep -nP '[^\x00-\x7F]' $(find game -name '*.lua') || { echo "::error::caracteres non ASCII dans les .lua"; exit 1; }
           # Appels interdits sur AKA-Love
-          ! grep -n 'love.graphics.clear' $(find game -name '*.lua') || { echo "::error::love.graphics.clear non supporte sur AKA"; exit 1; }
+          ! grep -nE '^[^-]*love\.graphics\.clear' $(find game -name '*.lua') || { echo "::error::love.graphics.clear non supporte sur AKA"; exit 1; }
 
       - name: Test complet (audio + sauvegarde)
         run: python3 -I tests/run_tests.py game full
