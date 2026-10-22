@@ -19,14 +19,15 @@ function love.graphics.captureScreenshot(n) SHOTS[#SHOTS+1] = n end
 function love.graphics.setLineWidth() end
 VIOL = {}
 local function viol(msg) VIOL[msg] = (VIOL[msg] or 0) + 1 end
+PRIM = 0
 local curSize = 16
 local function chk(name, n, min) if n < min then error(name.." called with "..n.." args (need >="..min..")", 3) end end
 local function isnum(...) for i=1,select('#',...) do if type(select(i,...))~="number" then return false end end return true end
-function love.graphics.rectangle(mode,x,y,w,h) chk("rectangle",select('#',mode,x,y,w,h),5)
+function love.graphics.rectangle(mode,x,y,w,h) PRIM = PRIM + 1 chk("rectangle",select('#',mode,x,y,w,h),5)
   if not isnum(x,y,w,h) then error("rectangle non-number",2) end end
-function love.graphics.circle(mode,x,y,r) chk("circle",select('#',mode,x,y,r),4) end
-function love.graphics.line(...) chk("line",select('#',...),4) end
-function love.graphics.polygon(mode,...)
+function love.graphics.circle(mode,x,y,r) PRIM = PRIM + 1 chk("circle",select('#',mode,x,y,r),4) end
+function love.graphics.line(...) PRIM = PRIM + 1 chk("line",select('#',...),4) end
+function love.graphics.polygon(mode,...) PRIM = PRIM + 1
   local a={...}; if #a<6 then error("polygon <3 pts",2) end
   local n=#a/2; local sign=0
   for i=0,n-1 do
@@ -36,11 +37,11 @@ function love.graphics.polygon(mode,...)
     if math.abs(cr)>1e-9 then local s=cr>0 and 1 or -1; if sign==0 then sign=s elseif s~=sign then viol("CONCAVE polygon: "..table.concat(a,",")) break end end
   end
 end
-function love.graphics.print(t,x,y) chk("print",select('#',t,x,y),3)
+function love.graphics.print(t,x,y) PRIM = PRIM + 1 chk("print",select('#',t,x,y),3)
   if type(t)~="string" then error("print non-string",2) end
   if x + #t*curSize > 640 then viol("print overflow x: '"..t.."' x="..x.." size="..curSize) end
   if y + curSize > 480 then viol("print overflow y: '"..t.."'") end end
-function love.graphics.printf(t,x,y,limit,align) chk("printf",select('#',t,x,y,limit,align),5)
+function love.graphics.printf(t,x,y,limit,align) PRIM = PRIM + 1 chk("printf",select('#',t,x,y,limit,align),5)
   if #t*curSize > limit then viol("printf overflow: '"..t.."' ("..#t*curSize.." > "..limit..") size="..curSize) end
   if y + curSize > 480 then viol("printf overflow y: '"..t.."' y="..y) end
   if t:find("[\128-\255]") then viol("non-ASCII text: "..t) end end
@@ -74,6 +75,7 @@ end
 -- image stub : lit la vraie taille du PNG (en-tete IHDR) ; absent en mode noaudio (teste le decor de secours)
 IMG = {loaded={}, drawn=0, missing={}}
 function love.graphics.draw(img, x, y, r, sx, sy)
+  PRIM = PRIM + 1
   if type(img) ~= "table" or not img.w then viol("draw: not an image") return end
   if type(x) ~= "number" or type(y) ~= "number" then viol("draw: bad position") end
   IMG.drawn = IMG.drawn + 1
@@ -153,8 +155,14 @@ def beams():
 def debris():
     t = lua.eval('require("src.game")._debris()')
     return [{k: t[i][k] for k in ('x','y','soft')} for i in range(1, len(t)+1)]
+PERF = {'max':0,'sum':0,'n':0}
 def step(n=1, dt=1/30):
-    for _ in range(n): lua.execute(f"love.update({dt}); love.draw()")
+    for _ in range(n):
+        lua.execute(f"PRIM=0; love.update({dt}); love.draw()")
+        c = int(lua.eval('PRIM'))
+        if dbg_state_game(): PERF['max']=max(PERF['max'],c); PERF['sum']+=c; PERF['n']+=1
+def dbg_state_game():
+    return lua.eval('require("src.game")._dbg().state') == 'game'
 def key(k): lua.execute(f"love.keypressed('{k}')")
 def hold(k,v): lua.execute(f"__hold('{k}',{'true' if v else 'false'})")
 def clamp(v,a,b): return max(a,min(b,v))
@@ -349,4 +357,5 @@ for x in EXTRA: problems.append("extra: "+x)
 if CONTENT: problems.append("content: "+str(CONTENT))
 if problems:
     print("TEST PROBLEMS:"); [print("  -", x) for x in problems]; sys.exit(1)
+print(f"primitives/frame in game: avg={PERF['sum']//max(1,PERF['n'])} max={PERF['max']}")
 print("ALL OK")

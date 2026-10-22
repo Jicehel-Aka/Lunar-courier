@@ -1,5 +1,5 @@
--- LUNAR COURIER v0.9 - audio. Tout est protege par pcall : si une fonction ou un fichier
--- manque (runtime AKA-Love incomplet), le jeu continue en silence. WAV 16 bits mono.
+-- LUNAR COURIER - audio. Tout est protege par pcall : si une fonction ou un fichier
+-- manque (runtime AKA-Love incomplet), le jeu continue en silence. WAV 16 bits mono 44100 Hz (taux fixe du lecteur AKA).
 local A = {sfx = {}, music = nil, musicName = nil, musicOn = true, thrusting = false}
 
 local function try(f, ...)
@@ -17,17 +17,22 @@ local function make(path, loop, vol)
     return s
 end
 
+-- Effets ponctuels : une Source NEUVE a chaque lecture. Le runtime AKA-Love memorise le numero de piste
+-- d'une Source ; rejouer ou arreter une Source dont la piste a ete reprise entre-temps (par la musique,
+-- par exemple) couperait cette autre piste. Une Source neuve n'a pas de piste memorisee.
+local SFX_VOL = {pickup=0.8, pad=0.8, land=0.9, hit=0.9, bounce=0.7, menu=0.6, card=0.5, fail=0.9, warn=0.6}
+
 function A.load()
-    local names = {pickup=0.8, pad=0.8, land=0.9, hit=0.9, bounce=0.7, menu=0.6, card=0.5, fail=0.9, warn=0.6}
-    for n, v in pairs(names) do A.sfx[n] = make("sfx/"..n..".wav", false, v) end
+    for n in pairs(SFX_VOL) do
+        A.sfx[n] = make("sfx/"..n..".wav", false, SFX_VOL[n]) and true or nil   -- verifie seulement que le fichier existe
+    end
     A.sfx.thrust = make("sfx/thrust.wav", true, 0.5)
 end
 
 function A.play(name)
-    local s = A.sfx[name]
-    if not s then return end
-    if s.stop then try(s.stop, s) end
-    if s.play then try(s.play, s) end
+    if not A.sfx[name] then return end
+    local s = make("sfx/"..name..".wav", false, SFX_VOL[name])
+    if s and s.play then try(s.play, s) end
 end
 
 -- Boucle du propulseur : start/stop uniquement sur changement d'etat

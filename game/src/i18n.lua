@@ -51,11 +51,13 @@ function I.keyName(k)
 end
 
 -- Touches de pilotage : fleches toujours ; lettres selon la disposition choisie.
-function I.moveKeys()
-    if I.kb == "azerty" then return {left = {"left", "q"}, right = {"right", "d"}, up = {"up", "z"}} end
-    if I.kb == "qwerty" or I.kb == "qwertz" then return {left = {"left", "a"}, right = {"right", "d"}, up = {"up", "w"}} end
-    return {left = {"left"}, right = {"right"}, up = {"up"}}
-end
+local MK = {
+    azerty = {left = {"left", "q"}, right = {"right", "d"}, up = {"up", "z"}},
+    qwerty = {left = {"left", "a"}, right = {"right", "d"}, up = {"up", "w"}},
+    aka    = {left = {"left"}, right = {"right"}, up = {"up"}},
+}
+MK.qwertz = MK.qwerty
+function I.moveKeys() return MK[I.kb] or MK.aka end
 
 function I.setLang(code)
     for _, c in ipairs(I.langs) do

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Genere les sons de LUNAR COURIER (WAV 16 bits mono, synthese pure, aucun sample externe).
-Usage : python3 tools/make_audio.py [taux_hz]     (defaut 22050)
+Usage : python3 tools/make_audio.py [taux_hz]     (defaut 44100 = taux fixe du lecteur AKA)
 Ecrit dans ../sfx et ../mus. Necessite numpy."""
 import sys, os, wave
 import numpy as np
 
-SR = int(sys.argv[1]) if len(sys.argv) > 1 else 22050
+SR = int(sys.argv[1]) if len(sys.argv) > 1 else 44100
 HERE = os.path.dirname(os.path.abspath(__file__))
 SFX = os.path.join(HERE, "..", "sfx")
 MUS = os.path.join(HERE, "..", "mus")

@@ -45,6 +45,7 @@ local windCur = 0
 local fonts = {}
 local tg, runs, maxG = {}, {}, 390   -- terrain : hauteur par colonne, segments, plus bas
 local worldW, ncol, camX = 640, 160, 0
+local terrPts = {}
 local pads = {}
 local details = {strata = {}, craters = {}, specks = {}}
 local cardMission, cardKind, cardIdx, cardDone, cardLastKey = 1, "pre", 1, nil, "card_next"
@@ -178,6 +179,7 @@ end
 
 local function buildTerrain(pts, w)
     worldW = w or 640
+    terrPts = pts
     ncol = math.floor(worldW / COL)
     maxG = 0
     for i = 0, ncol-1 do
@@ -272,7 +274,7 @@ function Game.load()
     elseif love.timer and love.timer.getTime then math.randomseed(math.floor(love.timer.getTime()*100000))
     else math.randomseed(12345) end
     fonts.f16, fonts.f24, fonts.f32, fonts.f48 = mkfont(16), mkfont(24), mkfont(32), mkfont(48)
-    for i = 1, 40 do
+    for i = 1, 22 do
         stars[#stars+1] = {x=math.random(0,W), y=math.random(0,330), s=math.random(2,3), phase=math.random()*6.28}
     end
     Save.load()
@@ -560,7 +562,7 @@ local function drawSky()
         end
     end
     -- Etoiles lointaines fixes, plus fines que les etoiles animees au premier plan.
-    for i = 0, 28 do
+    for i = 0, 15 do
         local sx = (i*137 + 19) % W
         local sy = (i*71 + 13) % 278
         if i % 4 == 0 then color(73,133,166) else color(39,77,111) end
@@ -578,26 +580,27 @@ end
 
 local function ridgeH(r, xw) return r[1] + r[2]*math.sin(xw*r[3]) + r[4]*math.sin(xw*r[5] + 1) end
 
--- Reliefs lointains en parallaxe (defilent plus lentement que le sol).
+-- Reliefs lointains en parallaxe (defilent plus lentement que le sol) : trapezes convexes tous les 64 px.
 local function drawRidges()
     local p = pal()
     local th = THEMES[mission().theme or "plain"] or THEMES.plain
     for layer = 1, 2 do
         local r, par = th["r"..layer], (layer == 1) and 0.18 or 0.35
         local off = camX * par
-        local c0 = math.floor(off / 20)
+        local c0 = math.floor(off / 64)
         colorT(layer == 1 and p.r1 or p.r2)
-        for c = c0, c0 + 33 do
-            local h = math.floor(ridgeH(r, c*20))
-            rect(c*20 - off, h, 20, H - h)
+        for c = c0, c0 + 10 do
+            local x0, x1 = c*64 - off, (c+1)*64 - off
+            local h0, h1 = math.floor(ridgeH(r, c*64)), math.floor(ridgeH(r, (c+1)*64))
+            love.graphics.polygon("fill", x0, h0, x1, h1, x1, H, x0, H)
         end
     end
     -- Quelques facettes anguleuses donnent du relief sans texture couteuse.
     local off = camX * 0.35
-    local c0 = math.floor(off / 41)
-    for i = c0, c0 + 16 do
-        local x = i*41 + 7 - off
-        local y = math.floor(ridgeH(th.r2, i*41)) + 10 + (i%3)*7
+    local c0 = math.floor(off / 97)
+    for i = c0, c0 + 7 do
+        local x = i*97 + 7 - off
+        local y = math.floor(ridgeH(th.r2, i*97)) + 10 + (i%3)*7
         colorT(i%2==0 and {26,43,62} or {30,45,64})
         if y < H-12 then
             love.graphics.polygon("fill",x,y,x+13,y-8,x+27,y,x+20,y+5)
@@ -723,14 +726,24 @@ end
 local function drawTerrain()
     local p = pal()
     local cx = math.floor(camX)
-    colorT(p.ground); rect(0, maxG, W, H - maxG)
-    for _,r in ipairs(runs) do
-        local sx = r.x - cx
-        if sx + r.w > 0 and sx < W then
-            if r.y < maxG then colorT(p.ground); rect(sx, r.y + 2, r.w, maxG - r.y) end
-            colorT(p.top); rect(sx, r.y, r.w, 2)
+    -- Relief : un trapeze convexe par segment du profil (au lieu d'un rectangle par colonne de 4 px),
+    -- ce qui garde quelques dizaines de primitives par image sur la console.
+    colorT(p.ground)
+    for k = 1, #terrPts - 1 do
+        local a, b = terrPts[k], terrPts[k+1]
+        if b[1] - cx > -4 and a[1] - cx < W + 4 and b[1] > a[1] then
+            love.graphics.polygon("fill", a[1]-cx, a[2], b[1]-cx, b[2], b[1]-cx, H, a[1]-cx, H)
         end
     end
+    colorT(p.top)
+    if love.graphics.setLineWidth then love.graphics.setLineWidth(2) end
+    for k = 1, #terrPts - 1 do
+        local a, b = terrPts[k], terrPts[k+1]
+        if b[1] - cx > -4 and a[1] - cx < W + 4 and b[1] > a[1] then
+            love.graphics.line(a[1]-cx, a[2]+1, b[1]-cx, b[2]+1)
+        end
+    end
+    if love.graphics.setLineWidth then love.graphics.setLineWidth(1) end
     -- Strates sombres et petites inclusions minerales, deterministes pour rester legers.
     for _,s in ipairs(details.strata) do
         local sx = s.x - cx
@@ -938,10 +951,10 @@ local function drawMiniMap()
     panel(336, 8, 294, 58)
     -- profil du terrain (70 colonnes) puis marqueurs
     color(28,64,78)
-    for k = 0, 68 do
-        local gy = tg[math.floor(k * (ncol-1) / 68)] or 390
+    for k = 0, 33 do
+        local gy = tg[math.floor(k * (ncol-1) / 33)] or 390
         local h = clamp(math.floor((480 - gy) * 30 / 300), 2, 34)
-        rect(x0 + k*4, 60 - h, 4, h)
+        rect(x0 + k*8, 60 - h, 8, h)
     end
     for i,p in ipairs(pads) do
         if padDone[i] then color(80,240,150) elseif i == padIndex then color(53,215,211) else color(60,110,120) end
@@ -1002,9 +1015,11 @@ local function drawHUD()
     drawMiniMap()
 end
 
+local msgCache, msgLines = nil, nil
 local function drawMessage()
     if messageTimer <= 0 or message == "" then return end
-    local lines = wrap(message, 520, 16)
+    if msgCache ~= message then msgCache, msgLines = message, wrap(message, 520, 16) end
+    local lines = msgLines
     local h = #lines * 20 + 16
     local y = H - 18 - h
     panel(42, y, 556, h)
@@ -1213,11 +1228,11 @@ local function drawCard()
         end
     end
     -- Bandeau de titre sur le bas de l'illustration.
-    color(3,14,28); rect(0, 112, W, 40)
-    color(43,205,211); rect(0, 110, W, 2); rect(0, 152, W, 2)
-    color(255,190,79); rect(0, 110, 40, 2); rect(W-40, 152, 40, 2)
-    local f = fit(c[1], first and 480 or 600, {fonts.f24, fonts.f16})
-    centered(c[1], 118, f, {236,245,248}, first and 130 or 0, first and 500 or W)
+    color(3,14,28); rect(0, 120, W, 32)
+    color(43,205,211); rect(0, 118, W, 2); rect(0, 152, W, 2)
+    color(255,190,79); rect(0, 118, 40, 2); rect(W-40, 152, 40, 2)
+    local f = fit(c[1], 600, {fonts.f24, fonts.f16})
+    centered(c[1], f.size == 24 and 124 or 128, f, {236,245,248})
     panel(30, 160, 580, 314)
     local shown = math.floor(cardT * 70)
     local rem, vis = shown, {}

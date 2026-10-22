@@ -47,7 +47,7 @@ Mondes de 1280 a 3200 px (2 a 5 ecrans) avec camera a defilement, reliefs lointa
 Chaque push sur `main` : verifs -> paquets AKA + PC -> Release (version mineure +1).
 
 ## Points non verifiables sans console
-Cout d'affichage des grands mondes sur la console, dessin des images (echelle 2, panoramas decales), memoire, `captureScreenshot` sur AKA, sens de `newFont(n)` (px virtuels/physiques), taux d'echantillonnage et chemin des WAV (22050 Hz par defaut ; regenerer avec `python3 game/tools/make_audio.py 16000` si besoin), fluidite sur la console, difficulte reelle des chapitres 2 et 3.
+Cout d'affichage des grands mondes sur la console, dessin des images (echelle 2, panoramas decales), memoire, `captureScreenshot` sur AKA, sens de `newFont(n)` (px virtuels/physiques), chemin des WAV (44100 Hz, taux fixe du lecteur AKA ; regenerer avec `python3 game/tools/make_audio.py` si besoin), fluidite sur la console, difficulte reelle des chapitres 2 et 3.
 
 ## Reglages
 Haut de `game/src/game.lua` (poussee, rotation, seuils d'atterrissage). Gravite, vent, carburant : par mission dans `game/src/data.lua`.
