@@ -178,7 +178,7 @@ def wrapcount(text, maxw=500, size=16):
 lua.execute(f'DATA = dofile(ROOT.."/src/data.lua"); I18N = require("src.i18n")')
 nm = int(lua.eval("#DATA.missions"))
 ncards = 0
-for lang in ("fr","en"):
+for lang in ("fr","en","pt"):
   lua.execute(f'I18N.setLang("{lang}")')
   for i in range(1, nm+1):
     m = lua.eval(f"I18N.mission({i})")
@@ -295,7 +295,7 @@ check(lua.eval('I18N.kb') == 'azerty', "explicit kb must not follow language")
 lua.execute('I18N.aka = true; I18N.setKb("aka", true)')
 check(lua.eval('I18N.t("card_next")') == 'A : CONTINUE', "AKA en card_next: "+str(lua.eval('I18N.t("card_next")')))
 for aka, kb in ((False,"azerty"),(False,"qwerty"),(True,"aka")):
-  for lang in ("fr","en"):
+  for lang in ("fr","en","pt"):
     lua.execute(f'I18N.aka = {"true" if aka else "false"}; I18N.setKb("{kb}", true); I18N.setLang("{lang}")')
     # retour au titre puis parcours de tous les ecrans + menu systeme
     e = run('local G=require("src.game"); G.keypressed("escape"); G.keyreleased("escape")'); 

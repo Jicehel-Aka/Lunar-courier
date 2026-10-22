@@ -3,8 +3,8 @@
 -- Pour ajouter une langue : un fichier text_<code>.lua (histoire), une table dans STR, une entree dans I.langs.
 local I = {}
 
-I.langs = {"fr", "en"}                       -- langues disponibles (ordre du menu)
-I.langNames = {fr = "FRANCAIS", en = "ENGLISH"}
+I.langs = {"fr", "en", "pt"}                       -- langues disponibles (ordre du menu)
+I.langNames = {fr = "FRANCAIS", en = "ENGLISH", pt = "PORTUGUES"}
 I.lang = "fr"                                -- francais par defaut
 I.kbModes = {"aka", "azerty", "qwerty"}
 I.kb = "azerty"
@@ -40,6 +40,7 @@ local KEYNAMES = {
     aka = {A = "A", B = "B", C = "C", D = "D", MENU = "MENU"},
     fr  = {A = "ESPACE", B = "X", C = "C", D = "V", MENU = "ECHAP"},
     en  = {A = "SPACE",  B = "X", C = "C", D = "V", MENU = "ESC"},
+    pt  = {A = "ESPACO", B = "X", C = "C", D = "V", MENU = "ESC"},
 }
 function I.keyName(k)
     local set = (I.kb == "aka") and KEYNAMES.aka or (KEYNAMES[I.lang] or KEYNAMES.fr)
@@ -152,6 +153,40 @@ STR.en = {
     credits_title = "CREDITS", credits_1 = "LUNAR COURIER", credits_2 = "A game by Jicehel",
     credits_3 = "for Gamebuino AKA", credits_4 = "and AKA-Love", credits_5 = "Thanks for playing!",
     speakers = {{"LUNA :", {120,235,225}, "luna"}, {"VARGA :", {255,188,83}, "varga"}, {"CONTROL :", {140,225,150}, "controle"}},
+}
+STR.pt = {
+    title_sub = "UMA AVENTURA LUNAR", title_tag = "ENTREGUE A ULTIMA LUZ",
+    menu_continue = "CONTINUAR  M%02d", menu_new = "NOVO JOGO", menu_chapter = "CAPITULO %d",
+    hint1 = "CIMA / BAIXO : MENU", hint2 = "{A} : OK    {B} : SOM", hint3 = "{MENU} MENU  {C} PAUSA  {D} REINICIAR",
+    card_next = "{A} : CONTINUAR", card_launch = "{A} : DECOLAR", card_title = "{A} : TITULO", card_nextm = "{A} : PROXIMA MISSAO",
+    obj = "OBJ: ",
+    debrief_title = "MISSAO CUMPRIDA", fuel = "Combustivel : %d%%", hull = "Casco : %d%%", time = "Tempo : %s",
+    saved = "Progresso salvo",
+    pause = "PAUSA", pause_resume = "{C} : retomar", pause_menu = "{MENU} : menu", pause_music = "{B} : musica %s",
+    on = "SIM", off = "NAO",
+    hull_broken = "CASCO DESTRUIDO - {D} : REINICIAR", landed = "POUSO CONFIRMADO - {A} : CONTINUAR",
+    fuel_out = "SEM COMBUSTIVEL - {D} : REINICIAR",
+    pad_on = "FAROL %d/%d ATIVO  +25%% COMBUSTIVEL", cell_got = "MODULO RECUPERADO  +22%% COMBUSTIVEL",
+    hit_rock = "DESTROCO! CASCO -20%%", hit_wreck = "NAUFRAGIO! CASCO -20%%", hit_beam = "RAIO SOLAR! CASCO -20%%",
+    drone = "VAGALUME! DEVAGAR", no_cargo = "SEM MODULO: PEGUE A CAPSULA",
+    too_fast = "RAPIDO OU INCLINADO DEMAIS", off_pad = "FORA DA ZONA - MIRE O FAROL CIANO",
+    tilt = "ENDIREITE A NAVE", bounce = "QUICOU! REDUZA",
+    help_title = "COMANDOS",
+    help_turn_aka = "ESQUERDA / DIREITA : girar", help_thrust_aka = "CIMA : propulsor",
+    help_turn_azerty = "SETAS ou Q / D : girar", help_thrust_azerty = "CIMA ou Z : propulsor",
+    help_turn_qwerty = "SETAS ou A / D : girar", help_thrust_qwerty = "CIMA ou W : propulsor",
+    help_ok = "{A} : confirmar    {C} : pausa", help_restart = "{D} : reiniciar    {MENU} : menu",
+    help_music = "{B} : musica sim / nao", help_mission = "MISSAO",
+    help_m1 = "1. Pegue a capsula laranja", help_m2 = "2. Pouse no farol ciano",
+    help_m3 = "   devagar, nave reta", help_m4 = "F combustivel   H casco",
+    help_m5 = "V laranja = rapido demais", help_m6 = "Setas na borda : o alvo",
+    menu_title = "MENU", m_resume = "RETOMAR", m_controls = "COMANDOS", m_lang = "IDIOMA : %s", m_kb = "TECLADO : %s",
+    m_music = "MUSICA : %s", m_shot = "CAPTURA DE TELA", m_credits = "CREDITOS", m_totitle = "VOLTAR AO TITULO",
+    m_quit_aka = "VOLTAR AO LOADER", m_quit_pc = "SAIR", menu_foot = "{A} : OK    {B} : VOLTAR",
+    shot_ok = "CAPTURA: %s", shot_na = "CAPTURA INDISPONIVEL", shot_fail = "FALHA NA CAPTURA",
+    credits_title = "CREDITOS", credits_1 = "LUNAR COURIER", credits_2 = "Um jogo de Jicehel",
+    credits_3 = "para Gamebuino AKA", credits_4 = "e AKA-Love", credits_5 = "Obrigado por jogar!",
+    speakers = {{"LUNA :", {120,235,225}, "luna"}, {"VARGA :", {255,188,83}, "varga"}, {"CONTROLE :", {140,225,150}, "controle"}},
 }
 I.STR = STR
 
