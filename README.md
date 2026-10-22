@@ -30,6 +30,9 @@ Ecran titre : Continuer, Nouvelle partie, choix du chapitre (progression sauvega
 
 **Captures** : `love.graphics.captureScreenshot` ; sur PC le fichier `lunar_NNNN.png` est ecrit dans le dossier de sauvegarde LOVE (`%APPDATA%\LOVE\lunar-courier` sous Windows). Le runtime AKA-Love n'a pas cette fonction pour l'instant : le jeu affiche alors "capture indisponible" (a ajouter cote akalove pour ecrire sur la carte SD).
 
+## Finitions
+Texte des cartes ecrit lettre a lettre (un appui l'affiche en entier), volets de transition entre ecrans, secousse a l'impact, jauge de carburant clignotante, rang de fin de mission (C/B/A/S d'apres carburant + coque) avec meilleur rang sauvegarde.
+
 ## Niveaux
 Mondes de 1280 a 3200 px (2 a 5 ecrans) avec camera a defilement, reliefs lointains en parallaxe selon le decor (plaine, cratere, canyon, ruines, epaves, pics), 12 types de decors, fleche de rappel vers la cible hors champ et mini-carte. Les portraits de LUNA, Varga et du Controle s'affichent sur les cartes d'histoire.
 

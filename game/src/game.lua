@@ -55,6 +55,9 @@ local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
 local sysOpen, sysPage, sysSel = false, "main", 1   -- menu systeme (MENU court)
 local escDown = nil                                  -- instant d'appui sur MENU (appui long = capture)
 local toast, toastT, shotPending = "", 0, 0
+local wipeT, lastKey, shakeT = 0, "", 0     -- transition en volet, cle de l'ecran precedent, secousse
+local lastRank = 0
+local RANKS = {"C", "B", "A", "S"}
 
 local PAL = {
     earth = {bg={4,9,22},  band1={7,17,37},  band2={9,23,43},  r1={9,20,38},  r2={16,30,48},
@@ -319,6 +322,7 @@ local function failMission(text)
 end
 
 local function hit(dx, text)
+    shakeT = 0.3
     ship.hitCooldown = 1.2
     ship.vx = ship.vx + (dx >= 0 and 45 or -45)
     ship.vy = -math.abs(ship.vy)*0.45 - 22
@@ -369,6 +373,10 @@ function Game.update(dt)
     if state == "title" then titleAnim = math.min(titleAnim + dt, 4.2) end
     if state == "card" then cardT = cardT + dt end
     if toastT > 0 then toastT = math.max(0, toastT - dt) end
+    if shakeT > 0 then shakeT = math.max(0, shakeT - dt) end
+    local sk = state..(state == "card" and cardIdx or "")..(state == "game" and missionIndex or "")
+    if sk ~= lastKey then lastKey = sk; wipeT = 0.35 end
+    if wipeT > 0 then wipeT = math.max(0, wipeT - dt) end
     syncMusic()
     if sysOpen then Audio.thrust(false); return end
     if messageTimer > 0 then messageTimer = math.max(0, messageTimer - dt) end
@@ -953,7 +961,9 @@ local function drawHUD()
     color(145,229,231); love.graphics.print(string.format("M%02d", missionIndex), 18, 14)
     color(201,215,225); love.graphics.print("F", 76, 14)
     color(28,45,60); rect(96, 18, 96, 8)
-    if fuel < 25 then color(255,87,72) else color(36,213,193) end
+    if fuel < 25 then
+        if math.floor(time*4) % 2 == 0 then color(255,87,72) else color(150,40,34) end
+    else color(36,213,193) end
     rect(96, 18, 96 * fuel/100, 8)
     color(201,215,225); love.graphics.print("H", 204, 14)
     color(28,45,60); rect(224, 18, 84, 8)
@@ -1209,9 +1219,17 @@ local function drawCard()
     local f = fit(c[1], first and 480 or 600, {fonts.f24, fonts.f16})
     centered(c[1], 118, f, {236,245,248}, first and 130 or 0, first and 500 or W)
     panel(30, 160, 580, 314)
-    drawLines(lines, 70, 174, 500, fonts.f16, cols, 20)
-    local prompt = (cardIdx == #list) and I.t(cardLastKey) or I.t("card_next")
-    centered(prompt, 436, fonts.f16, {255,190,81})
+    local shown = math.floor(cardT * 70)
+    local rem, vis = shown, {}
+    for i,l in ipairs(lines) do
+        vis[i] = l:sub(1, math.max(0, rem))
+        rem = rem - #l - 1
+    end
+    drawLines(vis, 70, 174, 500, fonts.f16, cols, 20)
+    if shown >= #c[2] then
+        local prompt = (cardIdx == #list) and I.t(cardLastKey) or I.t("card_next")
+        centered(prompt, 436, fonts.f16, {255,190,81})
+    end
     centered(cardIdx.."/"..#list, 454, fonts.f16, {90,110,130})
 end
 
@@ -1283,15 +1301,18 @@ local function drawOverlays()
         centered(I.t("pause_music", I.onoff(Audio.musicOn)), 274, fonts.f16, {82,226,218})
     elseif state == "debrief" then
         local t = I.mission(missionIndex)
-        panel(95, 100, 450, 280)
+        panel(95, 100, 450, 290)
         centered(I.t("debrief_title"), 116, fonts.f24, {76,233,216})
         local f = fit(t.name, 420, {fonts.f24, fonts.f16})
         centered(t.name, 152, f, {255,190,81})
         centered(I.t("fuel", math.floor(fuel)), 202, fonts.f16, {198,216,227})
         centered(I.t("hull", math.floor(hull)), 228, fonts.f16, {198,216,227})
         centered(I.t("time", string.format("%d:%02d", math.floor(missionTime/60), math.floor(missionTime%60))), 254, fonts.f16, {198,216,227})
-        if Save.ok then centered(I.t("saved"), 290, fonts.f16, {120,200,120}) end
-        centered(I.t("card_next"), 336, fonts.f16, {78,227,218})
+        local best = tonumber(Save.ranks:sub(missionIndex, missionIndex)) or lastRank
+        centered(I.t("rank", RANKS[lastRank]), 282, fonts.f24, {255,190,81})
+        centered(I.t("rank_best", RANKS[math.max(1, best)]), 314, fonts.f16, {145,229,231})
+        if Save.ok then centered(I.t("saved"), 340, fonts.f16, {120,200,120}) end
+        centered(I.t("card_next"), 356, fonts.f16, {78,227,218})
     end
 end
 
@@ -1328,12 +1349,19 @@ function Game.draw()
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
+        love.graphics.push()
+        if shakeT > 0 then love.graphics.translate(math.floor((math.random()-0.5)*shakeT*30), math.floor((math.random()-0.5)*shakeT*30)) end
         drawSky()
         drawRidges()
         drawWorld()
         drawWindStreaks()
+        love.graphics.pop()
         drawArrows(); drawHUD()
         drawBanner(); drawMessage(); drawOverlays()
+    end
+    if wipeT > 0 then
+        local h = math.floor(H / 2 * (wipeT / 0.35))
+        color(2,6,14); rect(0, 0, W, h); rect(0, H - h, W, h)
     end
     if doShot then takeShot() end
     if sysOpen and shotPending == 0 then drawSysMenu() end
@@ -1468,7 +1496,10 @@ function Game.keypressed(key, scancode, isrepeat)
     elseif state == "instructions" then
         if confirm(key) then Audio.play("menu"); beginMission(1) end
     elseif state == "card" then
-        if confirm(key) then
+        local cur = cardsOf()[cardIdx]
+        if confirm(key) and cur and math.floor(cardT * 70) < #cur[2] then
+            cardT = 1000   -- premier appui : affiche tout le texte
+        elseif confirm(key) then
             Audio.play("card")
             cardIdx = cardIdx + 1; cardT = 0
             if cardIdx > #cardsOf() then
@@ -1479,6 +1510,10 @@ function Game.keypressed(key, scancode, isrepeat)
         end
     elseif state == "game" then
         if ship.landed and confirm(key) then
+            local pts = fuel * 0.5 + hull * 0.5
+            lastRank = (pts >= 85 and 4) or (pts >= 70 and 3) or (pts >= 50 and 2) or 1
+            local old = tonumber(Save.ranks:sub(missionIndex, missionIndex)) or 0
+            if lastRank > old then Save.ranks = Save.ranks:sub(1, missionIndex-1)..lastRank..Save.ranks:sub(missionIndex+1) end
             Save.next = missionIndex + 1
             if Save.next > Save.best then Save.best = Save.next end
             Save.save()

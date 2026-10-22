@@ -265,7 +265,7 @@ for mi in range(1, nm+1):
     key('space'); step(1)            # landed -> debrief
     st_deb = dbg()['state']
     seen=0; g=0
-    while dbg()['state'] in ('debrief','card') and g<30:
+    while dbg()['state'] in ('debrief','card') and g<80:
         if dbg()['state']=='card': seen+=1
         key('space'); step(1); g+=1
     d=dbg()
