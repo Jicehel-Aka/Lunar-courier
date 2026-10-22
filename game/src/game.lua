@@ -867,17 +867,19 @@ local function drawTitle()
         centered("LIVREZ LA DERNIERE LUMIERE", 164, fonts.f24, {255,198,111})
     end
 
-    -- Menu en zone basse, avec separation suffisamment epaisse a l echelle AKA.
-    color(39,88,110); rect(92, 286, 456, 2)
-    local y = 306
+    -- Menu compact, puis commandes reparties sur plusieurs lignes pour l AKA.
+    color(39,88,110); rect(92, 280, 456, 2)
+    local y = 288
     for i,it in ipairs(menu) do
         if i == menuSel then
             color(255,190,79); rect(170, y+10, 18, 2); rect(452, y+10, 18, 2)
             centered("> "..it.label.." <", y, fonts.f24, {255,190,83})
         else centered(it.label, y, fonts.f24, {82,229,218}) end
-        y = y + 34
+        y = y + 26
     end
-    centered("HAUT/BAS MENU   A OK   B SON", 448, fonts.f24, {158,184,202})
+    centered("HAUT / BAS : MENU", 402, fonts.f24, {158,184,202})
+    centered("A : OK    B : SON", 426, fonts.f24, {158,184,202})
+    centered("EN VOL : C PAUSE   D : RECOMMENCER", 452, fonts.f16, {120,151,170})
 end
 
 local function drawInstructions()
@@ -912,11 +914,37 @@ local SPEAKERS = {
 }
 local NARRATION = {179,205,219}
 
+-- Portrait vectoriel de LUNA : autonome, sans fichier image a charger.
+local function drawLunaPortrait(x, y)
+    color(3,14,28); rect(x, y, 60, 60)
+    color(28,100,119); rect(x, y, 60, 2); rect(x, y, 2, 60)
+    color(48,197,207); rect(x+58, y+2, 2, 56); rect(x+2, y+58, 56, 2)
+    -- Epaules et col du module de bord.
+    color(20,45,68)
+    love.graphics.polygon("fill", x+7,y+56, x+12,y+43, x+23,y+38, x+37,y+38, x+48,y+43, x+53,y+56)
+    color(50,121,145)
+    love.graphics.polygon("fill", x+20,y+56, x+23,y+43, x+37,y+43, x+40,y+56)
+    color(255,190,79); rect(x+27,y+43,6,2)
+    -- Chevelure, visage et meches.
+    color(24,38,76); love.graphics.circle("fill", x+30, y+25, 21)
+    color(151,219,225); love.graphics.circle("fill", x+30, y+27, 15)
+    color(34,65,106)
+    love.graphics.polygon("fill", x+10,y+23, x+13,y+9, x+25,y+5, x+43,y+9, x+50,y+22, x+43,y+17, x+36,y+20, x+29,y+14, x+21,y+20, x+14,y+19)
+    -- Yeux cyan et expression calme.
+    color(22,62,91); rect(x+20,y+27,5,2); rect(x+35,y+27,5,2)
+    color(48,225,220); rect(x+21,y+27,2,2); rect(x+36,y+27,2,2)
+    color(77,128,151); rect(x+28,y+31,4,2)
+    color(255,190,120); rect(x+27,y+35,6,2)
+    -- Petite signature lumineuse sur la tempe.
+    color(48,225,220); rect(x+42,y+24,3,5)
+end
+
 local function drawCard()
     local c = cardList[cardIdx]
     panel(42, 40, 556, 400)
-    local f = fit(c[1], 520, {fonts.f24, fonts.f16})
-    centered(c[1], 58, f, {236,245,248})
+    drawLunaPortrait(54, 45)
+    local f = fit(c[1], 440, {fonts.f24, fonts.f16})
+    centered(c[1], 58, f, {236,245,248}, 124, 450)
     color(43,205,211); rect(W/2-60, 94, 120, 2)
     local lines = wrap(c[2], 500, 16)
     local cols, cur, newPara = {}, NARRATION, true
