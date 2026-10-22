@@ -887,8 +887,8 @@ local function drawInstructions()
     centered("COMMANDES", 44, fonts.f32, {235,244,248})
     local amber, white = {255,188,83}, {198,216,227}
     local rows = {
-        {"GAUCHE / DROITE : tourner", white},
-        {"HAUT : propulseur  (PC: Z W Q D)", white},
+        {"GAUCHE / DROITE : tourner (PC : Q/D)", white},
+        {"HAUT : propulseur (PC AZERTY : Z)", white},
         {"A : valider    C : pause", white},
         {"D : recommencer    MENU : titre", white},
         {"B : musique oui / non", white},
