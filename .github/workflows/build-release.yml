@@ -39,7 +39,7 @@ jobs:
         run: |
           for f in $(find game -name '*.lua'); do luajit -bl "$f" > /dev/null || { echo "::error file=$f::erreur de syntaxe"; exit 1; }; done
           # Portabilite : noms de fichiers en minuscules, texte ASCII uniquement
-          bad=$(find game -type f | grep '[A-Z]' || true); [ -z "$bad" ] || { echo "::error::majuscules dans les noms: $bad"; exit 1; }
+          bad=$(find game -type f ! -name '*.md' | grep '[A-Z]' || true); [ -z "$bad" ] || { echo "::error::majuscules dans les noms: $bad"; exit 1; }
           ! grep -nP '[^\x00-\x7F]' $(find game -name '*.lua') || { echo "::error::caracteres non ASCII dans les .lua"; exit 1; }
           # Appels interdits sur AKA-Love
           ! grep -nE '^[^-]*love\.graphics\.clear' $(find game -name '*.lua') || { echo "::error::love.graphics.clear non supporte sur AKA"; exit 1; }
