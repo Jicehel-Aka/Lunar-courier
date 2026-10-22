@@ -118,10 +118,17 @@ local function drawLines(lines, x0, y, w, font, c, lh)
 end
 
 local function panel(x,y,w,h)
-    color(5,13,28); rect(x,y,w,h)
+    color(4,11,25); rect(x,y,w,h)
+    color(9,23,40); rect(x+2,y+2,w-4,math.min(18,h-4))
     color(43,205,211)
     if love.graphics.setLineWidth then love.graphics.setLineWidth(1) end
     love.graphics.rectangle("line",x,y,w,h)
+    -- Coins lumineux : une signature visuelle commune aux menus, cartes et HUD.
+    color(255,190,79)
+    rect(x+1,y+1,10,2); rect(x+1,y+1,2,8)
+    color(48,197,207)
+    rect(x+w-9,y+1,8,2); rect(x+w-2,y+1,2,8)
+    rect(x+1,y+h-2,8,1); rect(x+w-8,y+h-2,7,1)
 end
 
 -- ---------------------------------------------------------------------------
@@ -485,6 +492,16 @@ local function drawSky()
             rect(i*24, 150 - i*4 + (i%2)*3, 52, 20)
         end
     end
+    -- Etoiles lointaines fixes, plus fines que les etoiles animees au premier plan.
+    for i = 0, 28 do
+        local sx = (i*137 + 19) % W
+        local sy = (i*71 + 13) % 278
+        if i % 4 == 0 then color(73,133,166) else color(39,77,111) end
+        rect(sx, sy, (i%5==0) and 3 or 2, 2)
+        if i % 7 == 0 then
+            color(105,197,210); rect(sx-2, sy+1, 7, 1); rect(sx+1, sy-2, 1, 7)
+        end
+    end
     for _,st in ipairs(stars) do
         local pulse = math.floor((time*2 + st.phase)*2) % 5
         if pulse == 0 then color(92,157,190) elseif pulse == 1 then color(140,203,222) else color(193,222,235) end
@@ -498,6 +515,16 @@ local function drawRidges()
     for i = 0, 31 do rect(i*20, ridge1[i], 20, H - ridge1[i]) end
     colorT(p.r2)
     for i = 0, 31 do rect(i*20, ridge2[i], 20, H - ridge2[i]) end
+    -- Quelques facettes anguleuses donnent du relief sans texture couteuse.
+    for i = 0, 15 do
+        local x = i*41 + 7
+        local y = ridge2[(i*2)%32] + 10 + (i%3)*7
+        color(i%2==0 and {26,43,62} or {30,45,64})
+        if y < H-12 then
+            love.graphics.polygon("fill",x,y,x+13,y-8,x+27,y,x+20,y+5)
+            color(47,64,81); rect(x+8,y-3,8,2)
+        end
+    end
 end
 
 local function drawStation(cx, base, big)
@@ -535,6 +562,26 @@ local function drawTerrain()
     for _,r in ipairs(runs) do
         if r.y < maxG then colorT(p.ground); rect(r.x, r.y + 2, r.w, maxG - r.y) end
         colorT(p.top); rect(r.x, r.y, r.w, 2)
+    end
+    -- Strates sombres et petites inclusions minerales, deterministes pour rester legers.
+    for i = 1, 24 do
+        local x = (i*53 + 17) % W
+        local gy = groundAt(x)
+        local y = gy + 10 + (i*19)%54
+        if y < H-3 then
+            color(i%3==0 and {27,39,51} or {39,51,63})
+            rect(x,y,5+(i%4)*3,2)
+            colorT(p.speck); rect(x+2,y+3,2,1)
+        end
+    end
+    -- Crateres stylises sur les zones visibles du sol.
+    for i = 1, 8 do
+        local x = (i*79 + 31) % W
+        local gy = groundAt(x)
+        if gy < H-12 then
+            color(30,42,54); rect(x-7,gy+4,15,3)
+            color(68,82,94); rect(x-5,gy+4,9,1)
+        end
     end
     colorT(p.speck)
     for i = 1, 16 do
@@ -749,20 +796,49 @@ end
 -- Ecrans
 -- ---------------------------------------------------------------------------
 local function drawTitle()
-    color(32,196,207); rect(W/2-76, 36, 152, 2)
-    centered("UNE AVENTURE LUNAIRE", 48, fonts.f24, {90,224,227})
-    centered("LUNAR COURIER", 88, fonts.f48, {235,244,248})
-    color(255,183,75); rect(W/2-54, 146, 108, 2)
-    centered("Livrez la derniere lumiere", 160, fonts.f16, {255,198,111})
-    love.graphics.push(); love.graphics.translate(W/2, 226); love.graphics.scale(1.2, 1.2)
+    -- Bandeau editorial et sceau de mission.
+    color(32,196,207); rect(W/2-118, 31, 236, 2)
+    color(255,190,79); rect(W/2-42, 35, 84, 2)
+    centered("UNE AVENTURE LUNAIRE", 44, fonts.f24, {90,224,227})
+    centered("LUNAR COURIER", 82, fonts.f48, {235,244,248})
+    color(255,183,75); rect(W/2-72, 140, 144, 2)
+    centered("LIVREZ LA DERNIERE LUMIERE", 151, fonts.f16, {255,198,111})
+
+    -- Grande illustration vectorielle en pixel art : halo, anneaux de navigation,
+    -- capsule de livraison et vaisseau agrandi au centre de la composition.
+    color(8,25,43)
+    love.graphics.circle("fill", W/2, 228, 82)
+    color(15,46,68)
+    love.graphics.circle("line", W/2, 228, 76)
+    color(29,89,109)
+    love.graphics.circle("line", W/2, 228, 64)
+    color(45,118,132)
+    love.graphics.circle("line", W/2, 228, 52)
+    color(255,190,79); rect(W/2-64, 226, 128, 2)
+    color(57,206,208); rect(W/2-2, 163, 4, 130)
+    color(255,190,79); rect(W/2-3, 222, 6, 12)
+    -- Balise lointaine et son faisceau de guidage.
+    color(29,72,91); rect(W/2-125, 238, 38, 3)
+    color(52,151,166); rect(W/2-113, 218, 3, 20)
+    color(255,190,79); rect(W/2-116, 214, 9, 5)
+    color(29,72,91); rect(W/2+87, 238, 38, 3)
+    color(52,151,166); rect(W/2+109, 218, 3, 20)
+    color(58,220,216); rect(W/2+106, 214, 9, 5)
+
+    love.graphics.push(); love.graphics.translate(W/2, 218); love.graphics.scale(1.85, 1.85)
     local save = {x=ship.x, y=ship.y, angle=ship.angle, thrust=ship.thrust, landed=ship.landed}
     ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 0, 0, 0, true, false
     drawShip()
     ship.x, ship.y, ship.angle, ship.thrust, ship.landed = save.x, save.y, save.angle, save.thrust, save.landed
     love.graphics.pop()
+
+    -- Filet de separation et commandes dans une zone reservee, sans recouvrir l'illustration.
+    color(39,88,110); rect(92, 274, 456, 1)
     local y = 292
     for i,it in ipairs(menu) do
-        if i == menuSel then centered("> "..it.label.." <", y, fonts.f24, {255,190,83})
+        if i == menuSel then
+            color(255,190,79); rect(170, y+9, 18, 2); rect(452, y+9, 18, 2)
+            centered("> "..it.label.." <", y, fonts.f24, {255,190,83})
         else centered(it.label, y, fonts.f24, {82,229,218}) end
         y = y + 34
     end
