@@ -9,7 +9,14 @@ lua.globals().ROOT = root
 lua.globals().MODE = mode
 lua.execute('package.path = ROOT.."/?.lua;"..package.path')
 stub = r'''
-love = {graphics={}, keyboard={}, timer={}}
+love = {graphics={}, keyboard={}, timer={}, system={}, event={}}
+OSNAME = 'Other'
+function love.system.getOS() return OSNAME end
+QUIT = 0
+function love.event.quit() QUIT = QUIT + 1 end
+SHOTS = {}
+function love.graphics.captureScreenshot(n) SHOTS[#SHOTS+1] = n end
+function love.graphics.setLineWidth() end
 VIOL = {}
 local function viol(msg) VIOL[msg] = (VIOL[msg] or 0) + 1 end
 local curSize = 16
@@ -107,9 +114,15 @@ Game._dbg = function()
           cargo=cargo, fuel=fuel, hull=hull, padIndex=padIndex, npads=#pads, failed=failed, mi=missionIndex,
           hascell=(m.cell~=nil), cellx=m.cell and m.cell.x or 0, celly=m.cell and m.cell.y or 0,
           padx=pads[padIndex] and pads[padIndex].x or 0, pady=pads[padIndex] and pads[padIndex].y or 0, t=missionTime,
-          g=m.gravity, cruise=mission().cruise or 200, msg=message, mt=messageTimer, cardIdx=cardIdx, ncards=cardList and #cardList or 0, wind=windCur,
+          g=m.gravity, cruise=200, camX=camX, worldW=worldW, sysOpen=sysOpen, msg=message, mt=messageTimer, cardIdx=cardIdx, ncards=#cardsOf(), wind=windCur,
           menuN=#menu, menuSel=menuSel, musicName=Audio.musicName, musicOn=Audio.musicOn,
           tgcheck=(function() local ok=true for i,p in ipairs(pads) do for x=p.x-PAD_HALF-8,p.x+PAD_HALF+8,4 do if groundAt(x)~=p.y then ok=false end end end return ok end)()}
+end
+Game._maxg = function(x1,x2)
+  if x1>x2 then x1,x2=x2,x1 end
+  local lo = 9999
+  for x=x1-20,x2+20,4 do local g=groundAt(x); if g<lo then lo=g end end
+  return lo
 end
 Game._beams = function()
   local out = {}
@@ -149,7 +162,8 @@ def clamp(v,a,b): return max(a,min(b,v))
 # ---------------------------------------------------------------- 1. contenu (longueurs, ASCII)
 data = open(root+"/src/data.lua").read()
 problems = []
-if re.search(r'[^\x00-\x7f]', data): problems.append("non-ASCII in data.lua")
+for f in ("data","i18n","text_fr","text_en","game","art","save"):
+    if re.search(r'[^\x00-\x7f]', open(root+f"/src/{f}.lua").read()): problems.append(f"non-ASCII in {f}.lua")
 def wrapcount(text, maxw=500, size=16):
     mc = maxw//size; lines=[]
     for para in (text+"\n").split("\n")[:-1]:
@@ -161,36 +175,42 @@ def wrapcount(text, maxw=500, size=16):
             else: lines.append(cur); cur=w
         lines.append(cur)
     return lines
-lua.execute(f'DATA = dofile(ROOT.."/src/data.lua")')
+lua.execute(f'DATA = dofile(ROOT.."/src/data.lua"); I18N = require("src.i18n")')
 nm = int(lua.eval("#DATA.missions"))
 ncards = 0
-for i in range(1, nm+1):
-    m = lua.eval(f"DATA.missions[{i}]")
+for lang in ("fr","en"):
+  lua.execute(f'I18N.setLang("{lang}")')
+  for i in range(1, nm+1):
+    m = lua.eval(f"I18N.mission({i})")
     name, obj = m['name'], m['objective']
-    if len(name) > 20: problems.append(f"M{i} name too long {len(name)}: {name}")
-    if len(obj) > 26: problems.append(f"M{i} objective too long {len(obj)}: {obj}")
+    if len(name) > 20: problems.append(f"{lang} M{i} name too long {len(name)}: {name}")
+    if len(obj) > 26: problems.append(f"{lang} M{i} objective too long {len(obj)}: {obj}")
     for kind in ('pre','post'):
         cards = m[kind]
         if cards is None: continue
         for j in range(1, len(cards)+1):
             c = cards[j]; title, body = c[1], c[2]; ncards += 1
-            if len(title) > 21: problems.append(f"M{i} {kind}{j} title {len(title)}: {title}")
+            if len(title) > 21: problems.append(f"{lang} M{i} {kind}{j} title {len(title)}: {title}")
             wl = wrapcount(body)
-            if len(wl) > 12: problems.append(f"M{i} {kind}{j} body {len(wl)} lines: {title}")
+            if len(wl) > 12: problems.append(f"{lang} M{i} {kind}{j} body {len(wl)} lines: {title}")
             for ln in wl:
-                if len(ln) > 31: problems.append(f"M{i} {kind}{j} line too long: {ln}")
+                if len(ln) > 31: problems.append(f"{lang} M{i} {kind}{j} line too long: {ln}")
     rad = m['radio']
     if rad is not None:
         for j in range(1, len(rad)+1):
-            if len(rad[j]['text']) > 66: problems.append(f"M{i} radio {j} len {len(rad[j]['text'])}")
+            if len(rad[j]) > 66: problems.append(f"{lang} M{i} radio {j} len {len(rad[j])}")
+    nr = len(rad) if rad is not None else 0
+    if nr != int(lua.eval(f"#(DATA.missions[{i}].radioT or {{}})")): problems.append(f"{lang} M{i} radio count {nr} != radioT")
+    if int(lua.eval(f"#(I18N.mission({i}).pre or {{}})")) != int(lua.eval(f"#(DATA.art[{i}].pre)")): problems.append(f"{lang} M{i} pre count vs art")
+lua.execute('I18N.setLang("fr")')
 art_errs = lua.eval('''(function()
   local D = require("src.data"); local out = {}
   for i,m in ipairs(D.missions) do
     local a = D.art and D.art[i]
     if not a then out[#out+1] = "M"..i..": no art entry"
     else
-      if #a.pre ~= #(m.pre or {}) then out[#out+1] = "M"..i..": art.pre count "..#a.pre.." != cards "..#(m.pre or {}) end
-      if #a.post ~= #(m.post or {}) then out[#out+1] = "M"..i..": art.post count "..#a.post.." != cards "..#(m.post or {}) end
+      if #a.pre ~= #(require('src.i18n').mission(i).pre or {}) then out[#out+1] = "M"..i..": art.pre count "..#a.pre.." != cards "..#(require('src.i18n').mission(i).pre or {}) end
+      if #a.post ~= #(require('src.i18n').mission(i).post or {}) then out[#out+1] = "M"..i..": art.post count "..#a.post.." != cards "..#(require('src.i18n').mission(i).post or {}) end
       for _,l in ipairs{a.pre, a.post} do for _,n in ipairs(l) do
         local f = io.open(ROOT.."/assets/scenes/"..n..".png", "rb")
         if not f then out[#out+1] = "M"..i..": missing image "..n else f:close() end
@@ -221,7 +241,7 @@ key('space'); step(1)           # -> pre cards of M1
 print("pre cards M1:", dbg()['state'], dbg()['ncards'])
 
 import ap
-autopilot = ap.make_autopilot(dbg, beams, debris, step, hold, clamp)
+autopilot = ap.make_autopilot(dbg, beams, debris, step, hold, clamp, lambda a,b: int(lua.eval(f'require("src.game")._maxg({a},{b})')))
 results={}
 advance_to_game()
 total_attempts=0
@@ -240,7 +260,7 @@ for mi in range(1, nm+1):
             hold('left',False); hold('right',False); hold('up',False)
             results[mi]=(attempt,'fail',res[1]); key('v'); step(1)
     if not ok:
-        print("mission",mi,"NOT completed by naive autopilot", results[mi]); FAILED.append(mi); lua.execute(f'require("src.game")._goto({mi+1})') if mi<nm else None; continue
+        print("mission",mi,"NOT completed by naive autopilot", results[mi]); FAILED.append(mi); break
     hold('left',False); hold('right',False); hold('up',False)
     key('space'); step(1)            # landed -> debrief
     st_deb = dbg()['state']
@@ -259,6 +279,52 @@ if mode != "noaudio":
     a = lua.eval('__aud()')
     print("audio loaded:", sorted(k for k in a['loaded']), "missing:", sorted(k for k in a['missing']) or "none")
     print("audio plays:", {k: a['plays'][k] for k in a['plays']})
+
+# ---------------------------------------------------------------- 3. PC / langues / menu / capture
+EXTRA = []
+def check(c, msg):
+    if not c: EXTRA.append(msg)
+lua.execute('I18N.aka = false; I18N.kbTouched = false; I18N.setLang("fr")')
+check(lua.eval('I18N.kb') == 'azerty', "PC fr should default to azerty")
+check(lua.eval('I18N.t("hint2")') == 'ESPACE : OK    X : SON', "PC fr hint2: "+str(lua.eval('I18N.t("hint2")')))
+lua.execute('I18N.setLang("en")')
+check(lua.eval('I18N.kb') == 'qwerty', "PC en should follow qwerty")
+check(lua.eval('I18N.t("card_next")') == 'SPACE : CONTINUE', "PC en card_next: "+str(lua.eval('I18N.t("card_next")')))
+lua.execute('I18N.setKb("azerty", true); I18N.setLang("fr"); I18N.setLang("en")')
+check(lua.eval('I18N.kb') == 'azerty', "explicit kb must not follow language")
+lua.execute('I18N.aka = true; I18N.setKb("aka", true)')
+check(lua.eval('I18N.t("card_next")') == 'A : CONTINUE', "AKA en card_next: "+str(lua.eval('I18N.t("card_next")')))
+for aka, kb in ((False,"azerty"),(False,"qwerty"),(True,"aka")):
+  for lang in ("fr","en"):
+    lua.execute(f'I18N.aka = {"true" if aka else "false"}; I18N.setKb("{kb}", true); I18N.setLang("{lang}")')
+    # retour au titre puis parcours de tous les ecrans + menu systeme
+    e = run('local G=require("src.game"); G.keypressed("escape"); G.keyreleased("escape")'); 
+    check(e is None, f"menu open {aka}{kb}{lang}: {e}")
+    for _ in range(14):
+        e = run('local G=require("src.game"); G.keypressed("down"); love.draw()'); check(e is None, f"menu nav: {e}")
+    for _ in range(4):
+        e = run('local G=require("src.game"); G.keypressed("right"); love.draw()'); check(e is None, f"menu cycle: {e}")
+    run('local G=require("src.game"); G.keypressed("escape"); G.keyreleased("escape")')
+    for st in ("title","instructions","card","game","debrief"):
+        e = run('love.draw()'); check(e is None, f"draw {st}: {e}")
+# captures : F12, appui long, menu
+n0 = int(lua.eval('#SHOTS'))
+run('local G=require("src.game"); G.keypressed("f12", "f12", false)')
+check(int(lua.eval('#SHOTS')) == n0+1, "F12 screenshot")
+run('local G=require("src.game"); G.keypressed("escape","escape",false)'); step(30)
+run('local G=require("src.game"); G.keyreleased("escape")')
+check(int(lua.eval('#SHOTS')) == n0+2, "long MENU screenshot")
+check(not lua.eval('require("src.game")._dbg().sysOpen'), "long MENU must not open the menu")
+run('local G=require("src.game"); G.keypressed("escape","escape",false); G.keyreleased("escape"); G.keypressed("down"); G.keypressed("down"); G.keypressed("right"); G.keypressed("escape","escape",false); G.keyreleased("escape")')
+fsd = lua.eval('__fs()')['lunar_courier.sav']
+if fsd is not None: check('shot=2' in fsd and 'lang=' in fsd and 'kb=' in fsd, "settings saved: "+repr(fsd))
+# clavier azerty : q/z/d pilotent
+lua.execute('I18N.setKb("azerty", true)')
+check(lua.eval('table.concat(I18N.moveKeys().up, ",")') == 'up,z', "azerty up keys")
+lua.execute('I18N.setKb("qwerty", true)')
+check(lua.eval('table.concat(I18N.moveKeys().up, ",")') == 'up,w', "qwerty up keys")
+lua.execute('I18N.setKb("aka", true); I18N.aka = true; I18N.setLang("fr")')
+print("pc/lang/menu/screenshot checks:", EXTRA or "ok")
 v = lua.eval('__viol()')
 print("VIOLATIONS:", {k: v[k] for k in v} or "none")
 img = lua.eval('__img()')
@@ -267,7 +333,7 @@ if mode != "noaudio":
     loaded = {k: (img['loaded'][k]['w'], img['loaded'][k]['h']) for k in img['loaded']}
     print("images loaded:", len(loaded), "| draws:", img['drawn'], "| missing:", sorted(k for k in img['missing']) or "none")
     for k,(w,h) in sorted(loaded.items()):
-        if w < 320 or h != 75: problems.append(f"image {k} is {w}x{h} (need width>=320, height 75)")
+        if ('/scenes/' in k and (w < 320 or h != 75)) or ('/portraits/' in k and (w != 48 or h != 48)): problems.append(f"image {k} is {w}x{h} (need width>=320, height 75)")
     miss = sorted(k for k in img['missing'])
     if miss: problems.append("missing images: "+", ".join(miss))
     if img['drawn'] == 0: problems.append("no image was ever drawn")
@@ -275,6 +341,7 @@ else:
     print("images: none (fallback banner path) | draws:", img['drawn'])
 for k in v: problems.append("violation: "+str(k))
 if FAILED: problems.append("missions not completed: "+str(FAILED))
+for x in EXTRA: problems.append("extra: "+x)
 if CONTENT: problems.append("content: "+str(CONTENT))
 if problems:
     print("TEST PROBLEMS:"); [print("  -", x) for x in problems]; sys.exit(1)

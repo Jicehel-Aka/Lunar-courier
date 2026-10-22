@@ -1,8 +1,9 @@
--- LUNAR COURIER v0.9 - sauvegarde (love.filesystem.read/write, protege par pcall).
+-- LUNAR COURIER - sauvegarde (love.filesystem.read/write, protege par pcall).
 -- Fichier texte "cle=valeur". Sur AKA-Love l'ecriture n'atteint la carte SD qu'a la fermeture,
 -- love.filesystem.write s'en charge. Si la sauvegarde est impossible, le jeu continue sans.
-local S = {next = 1, best = 1, music = 1, unlockAll = false, ok = false}
+local S = {next = 1, best = 1, music = 1, shot = 0, lang = nil, kb = nil, unlockAll = false, ok = false}
 local FILE = "lunar_courier.sav"
+local NUM = {next = true, best = true, music = true, shot = true}
 
 function S.load()
     local ok, data = pcall(function()
@@ -10,8 +11,9 @@ function S.load()
         return nil
     end)
     if ok and type(data) == "string" then
-        for k, v in data:gmatch("(%a+)=(%d+)") do
-            if k == "next" or k == "best" or k == "music" then S[k] = tonumber(v) end
+        for k, v in data:gmatch("(%a+)=(%w+)") do
+            if NUM[k] then S[k] = tonumber(v) or S[k]
+            elseif k == "lang" or k == "kb" then S[k] = v end
         end
     end
     if S.next < 1 then S.next = 1 end
@@ -19,7 +21,9 @@ function S.load()
 end
 
 function S.save()
-    local text = "next="..S.next.."\nbest="..S.best.."\nmusic="..S.music.."\n"
+    local text = "next="..S.next.."\nbest="..S.best.."\nmusic="..S.music.."\nshot="..S.shot.."\n"
+    if S.lang then text = text.."lang="..S.lang.."\n" end
+    if S.kb then text = text.."kb="..S.kb.."\n" end
     local ok, r = pcall(function()
         if love.filesystem and love.filesystem.write then return love.filesystem.write(FILE, text) end
         return false

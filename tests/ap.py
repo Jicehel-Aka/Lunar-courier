@@ -1,7 +1,7 @@
 # Autopilote v2 : cascade vitesse -> accel -> vecteur de poussee, modulation sigma-delta.
 import math
 G_BY_MISSION = None
-def make_autopilot(dbg, beams, debris, step, hold, clamp, PAD_HALF=39):
+def make_autopilot(dbg, beams, debris, step, hold, clamp, maxg=lambda a,b:300, PAD_HALF=39):
     def autopilot(maxsec=150, wait=0.0):
         acc = 0.0
         ticks = 0
@@ -17,7 +17,7 @@ def make_autopilot(dbg, beams, debris, step, hold, clamp, PAD_HALF=39):
             else: tx,ty,land = d['padx'],d['pady'],True
             dx = tx-x
             # altitude de croisiere : au-dessus du terrain et de la cible
-            cruise = min(ty-70, d['cruise'])
+            cruise = max(100, min(ty-70, maxg(x,tx)-95))
             aligned = abs(dx) < (24 if land else 12) and abs(vx) < 12
             if aligned:
                 ydes = ty-12 if land else ty

@@ -1,11 +1,12 @@
--- LUNAR COURIER v0.9 - moteur de jeu (AKA-Love / LOVE 11.x, Lua 5.1)
--- Regles de compatibilite : pas d'alpha, pas de canvas, pas de polygone concave,
+-- LUNAR COURIER - moteur de jeu (AKA-Love / LOVE 11.x, Lua 5.1)
+-- Regles de compatibilite : pas d'alpha sur les primitives, pas de canvas, pas de polygone concave,
 -- pas de love.graphics.clear, texte ASCII, 1 seul argument par isDown(),
--- audio et sauvegarde protegees par pcall (le jeu tourne meme sans).
+-- audio, images et sauvegarde protegees par pcall (le jeu tourne meme sans).
 local Data  = require("src.data")
 local Audio = require("src.audio")
 local Save  = require("src.save")
 local Art   = require("src.art")
+local I     = require("src.i18n")
 local Game = {}
 
 local W, H = 640, 480
@@ -23,7 +24,7 @@ local FEET       = 12      -- distance centre -> pieds du vaisseau
 local PAD_HALF   = 39      -- demi-largeur d'une zone d'atterrissage
 local TOP_LIMIT  = 70      -- plafond (sous le HUD)
 local COL        = 4       -- largeur des colonnes de terrain
-local NCOL       = W / COL
+local LONG_PRESS = 0.7     -- MENU maintenu plus de 0,7 s = capture d'ecran
 local EMPTY      = {}
 
 -- ---------------------------------------------------------------------------
@@ -43,13 +44,17 @@ local paused = false
 local windCur = 0
 local fonts = {}
 local tg, runs, maxG = {}, {}, 390   -- terrain : hauteur par colonne, segments, plus bas
+local worldW, ncol, camX = 640, 160, 0
 local pads = {}
-local ridge1, ridge2 = {}, {}
-local cardList, cardIdx, cardDone, cardLast = nil, 1, nil, "A : CONTINUER"
+local details = {strata = {}, craters = {}, specks = {}}
+local cardMission, cardKind, cardIdx, cardDone, cardLastKey = 1, "pre", 1, nil, "card_next"
 local cardArt, cardT = nil, 0   -- illustrations des cartes, temps ecoule sur la carte courante
 local menu, menuSel = {}, 1
 local skyOverride = nil
 local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
+local sysOpen, sysPage, sysSel = false, "main", 1   -- menu systeme (MENU court)
+local escDown = nil                                  -- instant d'appui sur MENU (appui long = capture)
+local toast, toastT, shotPending = "", 0, 0
 
 local PAL = {
     earth = {bg={4,9,22},  band1={7,17,37},  band2={9,23,43},  r1={9,20,38},  r2={16,30,48},
@@ -58,6 +63,17 @@ local PAL = {
              top={104,110,132}, ground={58,62,82}, speck={74,78,100}},
     peak  = {bg={6,14,30}, band1={10,26,50}, band2={14,34,62}, r1={12,30,54}, r2={20,42,70},
              top={150,172,192}, ground={72,88,106}, speck={96,112,130}},
+}
+
+-- Forme des reliefs lointains selon le theme de la mission : {base, amp1, freq1, amp2, freq2}
+local THEMES = {
+    plain  = {r1={292,28,0.040,16,0.11}, r2={350,14,0.070, 8,0.20}},
+    crater = {r1={300,40,0.025,10,0.14}, r2={352,18,0.050, 6,0.20}},
+    canyon = {r1={280,45,0.030,25,0.09}, r2={350,22,0.045,10,0.18}},
+    ruins  = {r1={296,24,0.060,18,0.15}, r2={350,12,0.080,10,0.23}},
+    far    = {r1={290,34,0.035,20,0.12}, r2={352,16,0.065, 9,0.19}},
+    wreck  = {r1={300,20,0.050,14,0.16}, r2={356,10,0.090, 6,0.25}},
+    peak   = {r1={270,50,0.028,30,0.10}, r2={340,26,0.050,12,0.17}},
 }
 
 local function mission() return Data.missions[missionIndex] end
@@ -146,19 +162,22 @@ local function note(key, text, dur, cd)
     end
     return false
 end
+local function setToast(text, dur) toast, toastT = text, dur or 3 end
 
 -- ---------------------------------------------------------------------------
--- Terrain
+-- Terrain (monde large : worldW px, colonnes de COL px)
 -- ---------------------------------------------------------------------------
 local function groundAt(x)
     local i = math.floor(x / COL)
-    if i < 0 then i = 0 elseif i > NCOL-1 then i = NCOL-1 end
+    if i < 0 then i = 0 elseif i > ncol-1 then i = ncol-1 end
     return tg[i]
 end
 
-local function buildTerrain(pts)
+local function buildTerrain(pts, w)
+    worldW = w or 640
+    ncol = math.floor(worldW / COL)
     maxG = 0
-    for i = 0, NCOL-1 do
+    for i = 0, ncol-1 do
         local x = i*COL + COL/2
         local y = pts[#pts][2]
         for k = 1, #pts-1 do
@@ -175,11 +194,24 @@ local function buildTerrain(pts)
     end
     runs = {}
     local s = 0
-    for i = 1, NCOL do
-        if i == NCOL or tg[i] ~= tg[s] then
+    for i = 1, ncol do
+        if i == ncol or tg[i] ~= tg[s] then
             runs[#runs+1] = {x=s*COL, w=(i-s)*COL, y=tg[s]}
             s = i
         end
+    end
+    -- Details du sol (strates, crateres, grains) : positions deterministes, ancrees au monde.
+    details = {strata = {}, craters = {}, specks = {}}
+    local per = math.max(1, worldW / 640)
+    for i = 1, math.floor(24 * per) do
+        local x = (i*53 + 17) % worldW
+        details.strata[#details.strata+1] = {x=x, dy=10 + (i*19)%54, w=5+(i%4)*3, alt=(i%3==0)}
+    end
+    for i = 1, math.floor(8 * per) do
+        details.craters[#details.craters+1] = {x=(i*79 + 31) % worldW}
+    end
+    for i = 1, math.floor(16 * per) do
+        details.specks[#details.specks+1] = {x=(i*59) % worldW, dy=8 + (i*29) % 60, w=2+(i%4), h=1+(i%2)}
     end
 end
 
@@ -188,11 +220,12 @@ end
 -- ---------------------------------------------------------------------------
 local function resetMission()
     local m = mission()
-    buildTerrain(m.terrain)
+    buildTerrain(m.terrain, m.w)
     pads = {}
     for i,p in ipairs(m.pads) do pads[i] = {x=p.x, y=groundAt(p.x)} end
     padIndex, padDone = 1, {}
     ship = {x=80, y=175, vx=0, vy=0, angle=0, thrust=false, landed=false, resting=false, hitCooldown=0}
+    camX = clamp(ship.x - W/2, 0, math.max(0, worldW - W))
     fuel, hull, cargo, missionTime = 100, 100, 0, 0
     failed, fuelWarned, lowWarned, paused = false, false, false, false
     particles, noteTimers, windCur, radioShown = {}, {}, 0, {}
@@ -211,16 +244,23 @@ end
 local function buildMenu()
     menu = {}
     if Save.next > 1 and Save.next <= #Data.missions then
-        menu[#menu+1] = {label="CONTINUER  M"..string.format("%02d", Save.next), act="continue"}
+        menu[#menu+1] = {label=I.t("menu_continue", Save.next), act="continue"}
     end
-    menu[#menu+1] = {label="NOUVELLE PARTIE", act="new"}
+    menu[#menu+1] = {label=I.t("menu_new"), act="new"}
     for ch = 2, 3 do
         local start = Data.chapterStart[ch]
         if Save.unlockAll or Save.best >= start then
-            menu[#menu+1] = {label="CHAPITRE "..ch, act="chapter", mission=start}
+            menu[#menu+1] = {label=I.t("menu_chapter", ch), act="chapter", mission=start}
         end
     end
     menuSel = clamp(menuSel, 1, #menu)
+end
+
+local function saveSettings()
+    Save.lang = I.lang
+    Save.kb = I.kb
+    Save.music = Audio.musicOn and 1 or 0
+    Save.save()
 end
 
 function Game.load()
@@ -232,11 +272,9 @@ function Game.load()
     for i = 1, 40 do
         stars[#stars+1] = {x=math.random(0,W), y=math.random(0,330), s=math.random(2,3), phase=math.random()*6.28}
     end
-    for i = 0, 31 do
-        ridge1[i] = math.floor(292 + 30*math.sin(i*0.9) + 18*math.sin(i*2.6+1))
-        ridge2[i] = math.floor(350 + 14*math.sin(i*1.4) + 8*math.sin(i*4.2))
-    end
     Save.load()
+    if Save.lang then I.setLang(Save.lang) end
+    if Save.kb then I.setKb(Save.kb, true) end
     Audio.musicOn = (Save.music ~= 0)
     Audio.load()
     resetMission()
@@ -287,7 +325,7 @@ local function hit(dx, text)
     hull = math.max(0, hull - 20)
     addParticles(ship.x, ship.y, 12, "spark")
     Audio.play("hit")
-    if hull <= 0 then failMission("COQUE BRISEE - D : RECOMMENCER")
+    if hull <= 0 then failMission(I.t("hull_broken"))
     else setMessage(text, 2.2) end
 end
 
@@ -296,34 +334,43 @@ local function activatePad()
     if padIndex >= #pads then
         ship.landed = true
         addParticles(ship.x, ship.y + FEET, 22, "dust")
-        setMessage("ATTERRISSAGE CONFIRME - A : CONTINUER", 99)
+        setMessage(I.t("landed"), 99)
         Audio.thrust(false)
         Audio.play("land")
     else
         padIndex = padIndex + 1
         fuel = math.min(100, fuel + 25)
         addParticles(ship.x, ship.y + FEET, 14, "pickup")
-        setMessage("BALISE "..(padIndex-1).."/"..#pads.." ACTIVEE  +25% CARBURANT", 3)
+        setMessage(I.t("pad_on", padIndex-1, #pads), 3)
         Audio.play("pad")
     end
 end
 
 -- ---------------------------------------------------------------------------
--- Mise a jour
+-- Entrees : touches de pilotage selon la disposition choisie
 -- ---------------------------------------------------------------------------
 local function down(k) return love.keyboard.isDown(k) end
+local function anyDown(list)
+    for _,k in ipairs(list) do if love.keyboard.isDown(k) then return true end end
+    return false
+end
 
 local function syncMusic()
     if state == "game" or state == "debrief" then Audio.setMusic("mus_ch"..chapterOf(missionIndex))
     else Audio.setMusic("mus_story") end
 end
 
+-- ---------------------------------------------------------------------------
+-- Mise a jour
+-- ---------------------------------------------------------------------------
 function Game.update(dt)
     dt = math.min(dt, 1/30)
     time = time + dt
     if state == "title" then titleAnim = math.min(titleAnim + dt, 4.2) end
     if state == "card" then cardT = cardT + dt end
+    if toastT > 0 then toastT = math.max(0, toastT - dt) end
     syncMusic()
+    if sysOpen then Audio.thrust(false); return end
     if messageTimer > 0 then messageTimer = math.max(0, messageTimer - dt) end
     for k,v in pairs(noteTimers) do noteTimers[k] = v - dt end
     for i = #particles, 1, -1 do
@@ -338,18 +385,20 @@ function Game.update(dt)
     local m = mission()
     missionTime = missionTime + dt
 
-    -- Repliques radio en vol
-    for i,r in ipairs(m.radio or EMPTY) do
-        if not radioShown[i] and missionTime >= r.t then
+    -- Repliques radio en vol (texte dans la langue courante)
+    local rt = I.mission(missionIndex).radio or EMPTY
+    for i,t in ipairs(m.radioT or EMPTY) do
+        if not radioShown[i] and rt[i] and missionTime >= t then
             radioShown[i] = true
-            setMessage(r.text, 4.5)
+            setMessage(rt[i], 4.5)
         end
     end
 
     -- Commandes (un seul argument par appel : compatible runtime AKA)
-    if down("left") or down("q") or down("a") then ship.angle = ship.angle - TURN*dt end
-    if down("right") or down("d") then ship.angle = ship.angle + TURN*dt end
-    local thrusting = (down("up") or down("z") or down("w")) and fuel > 0
+    local keys = I.moveKeys()
+    if anyDown(keys.left) then ship.angle = ship.angle - TURN*dt end
+    if anyDown(keys.right) then ship.angle = ship.angle + TURN*dt end
+    local thrusting = anyDown(keys.up) and fuel > 0
     ship.thrust = thrusting
     if thrusting then thrustTimer = 0.15 else thrustTimer = math.max(0, thrustTimer - dt) end
     Audio.thrust(thrustTimer > 0)
@@ -365,7 +414,7 @@ function Game.update(dt)
     if fuel < 25 and not lowWarned then lowWarned = true; Audio.play("warn") end
     if fuel <= 0 and not fuelWarned then
         fuelWarned = true
-        setMessage("CARBURANT EPUISE - D : RECOMMENCER", 99)
+        setMessage(I.t("fuel_out"), 99)
     end
 
     -- Vent (rafales) : ne pousse pas un vaisseau pose
@@ -379,15 +428,19 @@ function Game.update(dt)
     ship.y = ship.y + ship.vy*dt
 
     if ship.x < 16 then ship.x = 16; ship.vx = math.abs(ship.vx)*0.35 end
-    if ship.x > W-16 then ship.x = W-16; ship.vx = -math.abs(ship.vx)*0.35 end
+    if ship.x > worldW-16 then ship.x = worldW-16; ship.vx = -math.abs(ship.vx)*0.35 end
     if ship.y < TOP_LIMIT then ship.y = TOP_LIMIT; ship.vy = math.abs(ship.vy)*0.25 end
+
+    -- Camera : suit le vaisseau avec un peu d'avance sur sa vitesse
+    local target = clamp(ship.x - W/2 + ship.vx*0.4, 0, math.max(0, worldW - W))
+    camX = camX + (target - camX) * math.min(1, 5*dt)
 
     -- Capsule energetique
     if m.cell and cargo == 0 and math.abs(ship.x - m.cell.x) < 24 and math.abs(ship.y - m.cell.y) < 26 then
         cargo = 1
         fuel = math.min(100, fuel + 22)
         addParticles(m.cell.x, m.cell.y, 18, "pickup")
-        setMessage("MODULE RECUPERE  +22% CARBURANT", 3)
+        setMessage(I.t("cell_got"), 3)
         Audio.play("pickup")
     end
 
@@ -397,7 +450,7 @@ function Game.update(dt)
         for _,r in ipairs(m.rocks or EMPTY) do
             local ry = groundAt(r.x) - 9
             if math.abs(ship.x - r.x) < 20 and math.abs(ship.y - ry) < 22 then
-                hit(ship.x - r.x, "DEBRIS ! COQUE -20%"); break
+                hit(ship.x - r.x, I.t("hit_rock")); break
             end
         end
     end
@@ -409,9 +462,9 @@ function Game.update(dt)
                 if d.soft then
                     ship.hitCooldown = 0.5
                     ship.vx = ship.vx + ((ship.x - dx0) >= 0 and 25 or -25)
-                    note("drone", "LUCIOLE ! DOUCEMENT", 1.5, 2)
+                    note("drone", I.t("drone"), 1.5, 2)
                 else
-                    hit(ship.x - dx0, "EPAVE ! COQUE -20%")
+                    hit(ship.x - dx0, I.t("hit_wreck"))
                 end
                 break
             end
@@ -420,7 +473,7 @@ function Game.update(dt)
     if ship.hitCooldown <= 0 and not failed then
         for _,b in ipairs(m.beams or EMPTY) do
             if beamState(b) == "on" and math.abs(ship.x - b.x) < 17 then
-                hit(ship.x - b.x, "RAYON SOLAIRE ! COQUE -20%"); break
+                hit(ship.x - b.x, I.t("hit_beam")); break
             end
         end
     end
@@ -441,28 +494,28 @@ function Game.update(dt)
             if (not m.cell) or cargo == 1 then
                 activatePad()
             else
-                note("nocargo", "MODULE MANQUANT : PRENEZ LA CAPSULE", 2.5, 4)
+                note("nocargo", I.t("no_cargo"), 2.5, 4)
             end
         elseif math.abs(ship.vy) < 60 and math.abs(ship.angle) < 0.5 then
             ship.vy = 0
             ship.vx = ship.vx * 0.8
             ship.resting = true
             if math.abs(impact) > 12 then
-                if onLive then note("rough", "TROP RAPIDE OU PENCHE", 2.2, 3)
-                else note("off", "HORS ZONE - VISEZ LA BALISE CYAN", 2.5, 4) end
+                if onLive then note("rough", I.t("too_fast"), 2.2, 3)
+                else note("off", I.t("off_pad"), 2.5, 4) end
             elseif onLive and math.abs(ship.angle) >= SAFE_ANGLE then
-                note("tilt", "REDRESSEZ LE VAISSEAU", 2, 5)
+                note("tilt", I.t("tilt"), 2, 5)
             end
         else
             if math.abs(impact) > CRASH_VY then
                 hull = math.max(0, hull - 12)
-                if hull <= 0 then failMission("COQUE BRISEE - D : RECOMMENCER") end
+                if hull <= 0 then failMission(I.t("hull_broken")) end
             end
             ship.vy = -math.min(math.abs(ship.vy)*0.38 + 10, 65)
             ship.vx = ship.vx * 0.62
             ship.angle = ship.angle * 0.72
             addParticles(ship.x, ship.y + FEET, 7, "dust")
-            if not failed and note("bounce", "REBOND ! RALENTISSEZ", 2, 3) then
+            if not failed and note("bounce", I.t("bounce"), 2, 3) then
                 Audio.play("bounce")
             end
         end
@@ -515,16 +568,28 @@ local function drawSky()
     end
 end
 
+local function ridgeH(r, xw) return r[1] + r[2]*math.sin(xw*r[3]) + r[4]*math.sin(xw*r[5] + 1) end
+
+-- Reliefs lointains en parallaxe (defilent plus lentement que le sol).
 local function drawRidges()
     local p = pal()
-    colorT(p.r1)
-    for i = 0, 31 do rect(i*20, ridge1[i], 20, H - ridge1[i]) end
-    colorT(p.r2)
-    for i = 0, 31 do rect(i*20, ridge2[i], 20, H - ridge2[i]) end
+    local th = THEMES[mission().theme or "plain"] or THEMES.plain
+    for layer = 1, 2 do
+        local r, par = th["r"..layer], (layer == 1) and 0.18 or 0.35
+        local off = camX * par
+        local c0 = math.floor(off / 20)
+        colorT(layer == 1 and p.r1 or p.r2)
+        for c = c0, c0 + 33 do
+            local h = math.floor(ridgeH(r, c*20))
+            rect(c*20 - off, h, 20, H - h)
+        end
+    end
     -- Quelques facettes anguleuses donnent du relief sans texture couteuse.
-    for i = 0, 15 do
-        local x = i*41 + 7
-        local y = ridge2[(i*2)%32] + 10 + (i%3)*7
+    local off = camX * 0.35
+    local c0 = math.floor(off / 41)
+    for i = c0, c0 + 16 do
+        local x = i*41 + 7 - off
+        local y = math.floor(ridgeH(th.r2, i*41)) + 10 + (i%3)*7
         colorT(i%2==0 and {26,43,62} or {30,45,64})
         if y < H-12 then
             love.graphics.polygon("fill",x,y,x+13,y-8,x+27,y,x+20,y+5)
@@ -562,38 +627,130 @@ local function drawMast(cx, base)
     rect(cx - 4, base - 158, 8, 8)
 end
 
+-- Decors varies (sans collision). x = centre, b = sol sous l'objet. Polygones convexes uniquement.
+local DECOR = {}
+DECOR.dome = function(x, b)
+    color(24,38,54); rect(x-42, b-20, 84, 20)
+    color(36,60,82); love.graphics.polygon("fill", x-38,b-20, x-27,b-46, x-9,b-60, x+9,b-60, x+27,b-46, x+38,b-20)
+    color(61,241,225); rect(x-6, b-44, 12, 6)
+    color(255,190,79); rect(x-28, b-13, 6, 6); rect(x+22, b-13, 6, 6)
+    color(18,30,44); rect(x-6, b-16, 12, 16)
+end
+DECOR.dish = function(x, b)
+    color(28,40,56); rect(x-3, b-40, 6, 40); rect(x-14, b-6, 28, 6)
+    color(70,96,116); love.graphics.polygon("fill", x-24,b-52, x+6,b-48, x+14,b-62, x-16,b-66)
+    color(110,140,160); love.graphics.line(x-22,b-54, x+12,b-62)
+    if math.floor(time*2) % 2 == 0 then color(255,90,80) else color(90,30,30) end
+    rect(x+11, b-66, 4, 4)
+end
+DECOR.tower = function(x, b)
+    color(28,40,56); rect(x-4, b-124, 8, 124)
+    color(44,64,84); rect(x-16, b-92, 32, 3); rect(x-11, b-62, 22, 3); rect(x-7, b-34, 14, 3)
+    color(60,84,104); rect(x-1, b-140, 2, 16)
+    if math.floor(time*2 + x) % 2 == 0 then color(255,90,80) else color(90,30,30) end
+    rect(x-3, b-130, 6, 6)
+end
+DECOR.crane = function(x, b)
+    color(36,48,62); rect(x-20, b-10, 40, 10)
+    color(60,80,98); rect(x-3, b-74, 6, 66)
+    color(48,66,84); love.graphics.polygon("fill", x-3,b-74, x+50,b-66, x+50,b-60, x-3,b-66)
+    color(110,140,160); love.graphics.line(x+46,b-62, x+46,b-34)
+    color(255,190,79); rect(x+41, b-34, 10, 7)
+end
+DECOR.panels = function(x, b)
+    for k = 0, 3 do
+        local px = x + (k-1.5)*30
+        color(40,56,72); rect(px-2, b-14, 4, 14)
+        color(26,66,116); love.graphics.polygon("fill", px-12,b-14, px+12,b-14, px+8,b-30, px-16,b-30)
+        color(80,150,210); love.graphics.line(px-12,b-14, px-16,b-30)
+        color(120,190,235); rect(px-6, b-24, 8, 2)
+    end
+end
+DECOR.pylon = function(x, b)
+    color(30,44,60); rect(x-3, b-64, 6, 64)
+    color(48,68,88); rect(x-14, b-64, 28, 4); rect(x-9, b-44, 18, 3)
+    if math.floor(time*3 + x) % 2 == 0 then color(61,241,225) else color(30,100,110) end
+    rect(x-2, b-72, 4, 6)
+end
+DECOR.crystals = function(x, b)
+    color(30,120,160); love.graphics.polygon("fill", x-18,b, x-10,b-46, x-2,b)
+    color(60,200,235); love.graphics.polygon("fill", x-6,b, x+4,b-70, x+14,b)
+    color(150,235,250); love.graphics.polygon("fill", x+1,b-10, x+4,b-62, x+8,b-10)
+    color(40,150,190); love.graphics.polygon("fill", x+10,b, x+20,b-36, x+30,b)
+end
+DECOR.arch = function(x, b)
+    color(40,52,68); rect(x-32, b-62, 14, 62); rect(x+18, b-62, 14, 62)
+    color(52,66,84); love.graphics.polygon("fill", x-34,b-62, x-22,b-86, x+22,b-86, x+34,b-62)
+    color(28,38,52); rect(x-18, b-60, 36, 4)
+    color(255,190,79); rect(x-2, b-82, 4, 6)
+end
+DECOR.wreck = function(x, b)
+    color(30,38,50); love.graphics.polygon("fill", x-62,b, x-50,b-26, x-12,b-38, x+30,b-30, x+56,b-8, x+62,b)
+    color(46,58,74); love.graphics.polygon("fill", x-12,b-38, x-2,b-72, x+8,b-36)
+    color(255,190,79); rect(x-30, b-18, 6, 5); rect(x-14, b-22, 6, 5)
+    color(18,24,34); rect(x+20, b-14, 14, 8)
+end
+DECOR.camp = function(x, b)
+    color(150,100,40); love.graphics.polygon("fill", x-26,b, x,b-36, x+26,b)
+    color(255,190,79); love.graphics.polygon("fill", x-8,b, x,b-22, x+8,b)
+    color(70,50,30); rect(x-30, b-2, 60, 2)
+    if math.floor(time*6) % 2 == 0 then color(255,150,50) else color(255,210,90) end
+    rect(x+38, b-10, 7, 10)
+    color(255,240,160); rect(x+40, b-14, 3, 4)
+end
+
+local function drawDecor()
+    local m = mission()
+    for _,d in ipairs(m.decor or EMPTY) do
+        local kind, x = d[1], d[2]
+        if x - camX > -160 and x - camX < W + 160 then
+            local b = math.max(groundAt(x - 30), groundAt(x), groundAt(x + 30))
+            if kind == "station" then drawStation(x, b, d[3])
+            elseif kind == "mast" then drawMast(x, b)
+            elseif DECOR[kind] then DECOR[kind](x, b) end
+        end
+    end
+end
+
 local function drawTerrain()
     local p = pal()
+    local cx = math.floor(camX)
     colorT(p.ground); rect(0, maxG, W, H - maxG)
     for _,r in ipairs(runs) do
-        if r.y < maxG then colorT(p.ground); rect(r.x, r.y + 2, r.w, maxG - r.y) end
-        colorT(p.top); rect(r.x, r.y, r.w, 2)
+        local sx = r.x - cx
+        if sx + r.w > 0 and sx < W then
+            if r.y < maxG then colorT(p.ground); rect(sx, r.y + 2, r.w, maxG - r.y) end
+            colorT(p.top); rect(sx, r.y, r.w, 2)
+        end
     end
     -- Strates sombres et petites inclusions minerales, deterministes pour rester legers.
-    for i = 1, 24 do
-        local x = (i*53 + 17) % W
-        local gy = groundAt(x)
-        local y = gy + 10 + (i*19)%54
-        if y < H-3 then
-            colorT(i%3==0 and {27,39,51} or {39,51,63})
-            rect(x,y,5+(i%4)*3,2)
-            colorT(p.speck); rect(x+2,y+3,2,1)
+    for _,s in ipairs(details.strata) do
+        local sx = s.x - cx
+        if sx > -20 and sx < W then
+            local y = groundAt(s.x) + s.dy
+            if y < H-3 then
+                colorT(s.alt and {27,39,51} or {39,51,63})
+                rect(sx, y, s.w, 2)
+                colorT(p.speck); rect(sx+2, y+3, 2, 1)
+            end
         end
     end
     -- Crateres stylises sur les zones visibles du sol.
-    for i = 1, 8 do
-        local x = (i*79 + 31) % W
-        local gy = groundAt(x)
-        if gy < H-12 then
-            color(30,42,54); rect(x-7,gy+4,15,3)
-            color(68,82,94); rect(x-5,gy+4,9,1)
+    for _,c in ipairs(details.craters) do
+        local sx = c.x - cx
+        if sx > -20 and sx < W then
+            local gy = groundAt(c.x)
+            if gy < H-12 then
+                color(30,42,54); rect(sx-7,gy+4,15,3)
+                color(68,82,94); rect(sx-5,gy+4,9,1)
+            end
         end
     end
     colorT(p.speck)
-    for i = 1, 16 do
-        local x = (i*59) % W
-        local y = maxG + 8 + (i*29) % 60
-        if y < H then rect(x, y, 2 + (i%4), 1 + (i%2)) end
+    for _,s in ipairs(details.specks) do
+        local sx = s.x - cx
+        local y = maxG + s.dy
+        if sx > -8 and sx < W and y < H then rect(sx, y, s.w, s.h) end
     end
 end
 
@@ -621,20 +778,22 @@ end
 local function drawPads()
     local m = mission()
     for i,p in ipairs(pads) do
-        local st = padStatus(i)
-        local x0 = p.x - PAD_HALF
-        local plate, light
-        if st == 2 then plate = {22,100,80}; light = {80,240,150}
-        elseif st == 1 then plate = {16,57,70}; light = {53,215,211}
-        else plate = {24,38,48}; light = {44,92,104} end
-        colorT(plate); rect(x0, p.y, 2*PAD_HALF, 4)
-        colorT(light); rect(x0 + 4, p.y, 2*PAD_HALF - 8, 2)
-        rect(x0, p.y - 8, 3, 10); rect(x0 + 2*PAD_HALF - 3, p.y - 8, 3, 10)
-        for j = -2, 2 do rect(p.x + j*13 - 3, p.y + 2, 6, 1) end
-        drawBeacon(p.x + PAD_HALF + 14, p.y, st)
-        if st == 1 and ((not m.cell) or cargo == 1) and math.floor(time*3) % 2 == 0 then
-            color(255,190,79)
-            love.graphics.polygon("fill", p.x-9, p.y-64, p.x+9, p.y-64, p.x, p.y-50)
+        if p.x - camX > -120 and p.x - camX < W + 120 then
+            local st = padStatus(i)
+            local x0 = p.x - PAD_HALF
+            local plate, light
+            if st == 2 then plate = {22,100,80}; light = {80,240,150}
+            elseif st == 1 then plate = {16,57,70}; light = {53,215,211}
+            else plate = {24,38,48}; light = {44,92,104} end
+            colorT(plate); rect(x0, p.y, 2*PAD_HALF, 4)
+            colorT(light); rect(x0 + 4, p.y, 2*PAD_HALF - 8, 2)
+            rect(x0, p.y - 8, 3, 10); rect(x0 + 2*PAD_HALF - 3, p.y - 8, 3, 10)
+            for j = -2, 2 do rect(p.x + j*13 - 3, p.y + 2, 6, 1) end
+            drawBeacon(p.x + PAD_HALF + 14, p.y, st)
+            if st == 1 and ((not m.cell) or cargo == 1) and math.floor(time*3) % 2 == 0 then
+                color(255,190,79)
+                love.graphics.polygon("fill", p.x-9, p.y-64, p.x+9, p.y-64, p.x, p.y-50)
+            end
         end
     end
 end
@@ -659,6 +818,7 @@ end
 
 local function drawDebris(d)
     local x, y = debrisPos(d)
+    if x - camX < -40 or x - camX > W + 40 then return end
     if d.kind == "drone" then
         color(30,60,80);    rect(x-9, y-4, 18, 8)
         color(120,235,225); rect(x-7, y-2, 14, 4)
@@ -676,14 +836,16 @@ end
 
 local function drawBeams()
     for _,b in ipairs(mission().beams or EMPTY) do
-        local gy = groundAt(b.x)
-        local st = beamState(b)
-        color(90,62,24); rect(b.x - 10, 0, 20, 6)
-        if st == "on" then
-            color(255,214,110); rect(b.x - 9, 6, 18, gy - 6)
-            color(255,250,220); rect(b.x - 3, 6, 6, gy - 6)
-        elseif st == "warn" and math.floor(time*8) % 2 == 0 then
-            color(255,150,60); rect(b.x - 1, 6, 2, gy - 6)
+        if b.x - camX > -30 and b.x - camX < W + 30 then
+            local gy = groundAt(b.x)
+            local st = beamState(b)
+            color(90,62,24); rect(b.x - 10, 0, 20, 6)
+            if st == "on" then
+                color(255,214,110); rect(b.x - 9, 6, 18, gy - 6)
+                color(255,250,220); rect(b.x - 3, 6, 6, gy - 6)
+            elseif st == "warn" and math.floor(time*8) % 2 == 0 then
+                color(255,150,60); rect(b.x - 1, 6, 2, gy - 6)
+            end
         end
     end
 end
@@ -732,9 +894,58 @@ local function drawParticles()
     end
 end
 
+-- Objet a rejoindre : la capsule d'abord, puis la balise active.
+local function targetPos()
+    local m = mission()
+    if m.cell and cargo == 0 then return m.cell.x, m.cell.y, "cell" end
+    local p = pads[padIndex]
+    if p then return p.x, p.y - 40, "pad" end
+end
+
+-- Fleche au bord de l'ecran quand la cible est hors champ, avec la distance (unites de 10 px).
+local function drawArrows()
+    local tx, ty, kind = targetPos()
+    if not tx then return end
+    local sx = tx - camX
+    if sx >= 30 and sx <= W - 30 then return end
+    local y = clamp(ty, 110, 400)
+    if kind == "cell" then color(245,163,52) else color(53,215,211) end
+    local dist = tostring(math.floor(math.abs(tx - ship.x) / 10))
+    love.graphics.setFont(fonts.f16.obj)
+    if sx < 30 then
+        love.graphics.polygon("fill", 8, y, 34, y-14, 34, y+14)
+        love.graphics.print(dist, 40, y-8)
+    else
+        love.graphics.polygon("fill", W-8, y, W-34, y-14, W-34, y+14)
+        love.graphics.print(dist, W-44-#dist*16, y-8)
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- HUD (largeur de texte prudente : 16 px par caractere)
 -- ---------------------------------------------------------------------------
+local function drawMiniMap()
+    if worldW <= W + 1 then return end
+    local x0, y0, mw = 346, 14, 276
+    panel(336, 8, 294, 58)
+    -- profil du terrain (70 colonnes) puis marqueurs
+    color(28,64,78)
+    for k = 0, 68 do
+        local gy = tg[math.floor(k * (ncol-1) / 68)] or 390
+        local h = clamp(math.floor((480 - gy) * 30 / 300), 2, 34)
+        rect(x0 + k*4, 60 - h, 4, h)
+    end
+    for i,p in ipairs(pads) do
+        if padDone[i] then color(80,240,150) elseif i == padIndex then color(53,215,211) else color(60,110,120) end
+        rect(x0 + p.x / worldW * mw - 2, 40, 5, 12)
+    end
+    local m = mission()
+    if m.cell and cargo == 0 then color(245,163,52); rect(x0 + m.cell.x / worldW * mw - 2, 28, 5, 8) end
+    color(255,255,255); rect(x0 + ship.x / worldW * mw - 2, 20, 5, 6)
+    color(255,190,79)
+    love.graphics.rectangle("line", x0 + camX / worldW * mw, 14, W / worldW * mw, 46)
+end
+
 local function drawHUD()
     local m = mission()
     panel(10, 8, 316, 58)
@@ -778,6 +989,7 @@ local function drawHUD()
             else love.graphics.polygon("fill", x+8,41, x+8,51, x,46) end
         end
     end
+    drawMiniMap()
 end
 
 local function drawMessage()
@@ -791,11 +1003,11 @@ end
 
 local function drawBanner()
     if missionTime >= 3.5 or paused then return end
-    local m = mission()
+    local t = I.mission(missionIndex)
     panel(60, 76, 520, 70)
-    local f = fit(m.name, 490, {fonts.f24, fonts.f16})
-    centered(m.name, 86, f, {255,190,83}, 60, 520)
-    centered("OBJ: "..m.objective, 118, fonts.f16, {194,211,224}, 60, 520)
+    local f = fit(t.name, 490, {fonts.f24, fonts.f16})
+    centered(t.name, 86, f, {255,190,83}, 60, 520)
+    centered(I.t("obj")..t.objective, 118, fonts.f16, {194,211,224}, 60, 520)
 end
 
 -- ---------------------------------------------------------------------------
@@ -818,7 +1030,7 @@ local function drawTitle()
     -- En-tete : le titre reste cache en haut puis descend apres l arrivee du vaisseau.
     color(32,196,207); rect(W/2-118, 31, 236, 2)
     color(255,190,79); rect(W/2-42, 35, 84, 2)
-    centered("UNE AVENTURE LUNAIRE", 44, fonts.f24, {90,224,227})
+    centered(I.t("title_sub"), 44, fonts.f24, {90,224,227})
     centered("LUNAR COURIER", titleY, fonts.f48, {235,244,248})
 
     -- Halo orbital compact, garde derriere le vaisseau pour ne pas brouiller le titre.
@@ -867,7 +1079,7 @@ local function drawTitle()
 
     -- Sous-titre discret mais lisible sur l ecran physique.
     if t >= 2.65 then
-        centered("LIVREZ LA DERNIERE LUMIERE", 164, fonts.f24, {255,198,111})
+        centered(I.t("title_tag"), 164, fonts.f24, {255,198,111})
     end
 
     -- Menu compact, puis commandes reparties sur plusieurs lignes pour l AKA.
@@ -880,44 +1092,46 @@ local function drawTitle()
         else centered(it.label, y, fonts.f24, {82,229,218}) end
         y = y + 26
     end
-    centered("HAUT / BAS : MENU", 402, fonts.f24, {158,184,202})
-    centered("A : OK    B : SON", 426, fonts.f24, {158,184,202})
-    centered("EN VOL : C PAUSE   D : RECOMMENCER", 452, fonts.f16, {120,151,170})
+    centered(I.t("hint1"), 402, fonts.f24, {158,184,202})
+    centered(I.t("hint2"), 426, fonts.f24, {158,184,202})
+    centered(I.t("hint3"), 452, fonts.f16, {120,151,170})
 end
 
-local function drawInstructions()
+-- Aide : libelles de touches selon la plateforme / le clavier / la langue.
+local function drawHelp(promptKey)
     panel(38, 30, 564, 420)
-    centered("COMMANDES", 44, fonts.f32, {235,244,248})
+    centered(I.t("help_title"), 44, fonts.f32, {235,244,248})
     local amber, white = {255,188,83}, {198,216,227}
+    local k = I.kb
     local rows = {
-        {"GAUCHE / DROITE : tourner (PC : Q/D)", white},
-        {"HAUT : propulseur (PC AZERTY : Z)", white},
-        {"A : valider    C : pause", white},
-        {"D : recommencer    MENU : titre", white},
-        {"B : musique oui / non", white},
-        {"MISSION", amber},
-        {"1. Prenez la capsule orange", white},
-        {"2. Posez-vous sur la balise cyan", white},
-        {"   doucement, vaisseau droit", white},
-        {"F carburant   H coque", white},
-        {"V orange = trop vite pour se poser", white},
+        {I.t("help_turn_"..k), white}, {I.t("help_thrust_"..k), white},
+        {I.t("help_ok"), white}, {I.t("help_restart"), white}, {I.t("help_music"), white},
+        {I.t("help_mission"), amber},
+        {I.t("help_m1"), white}, {I.t("help_m2"), white}, {I.t("help_m3"), white},
+        {I.t("help_m4"), white}, {I.t("help_m5"), white}, {I.t("help_m6"), white},
     }
     local y = 96
     for _,r in ipairs(rows) do
         centered(r[1], y, fonts.f16, r[2])
         y = y + 24
     end
-    centered("A : CONTINUER", 400, fonts.f24, {65,226,219})
+    centered(I.t(promptKey), 400, fonts.f24, {65,226,219})
 end
 
-local SPEAKERS = {
-    {"LUNA :",     {120,235,225}},
-    {"VARGA :",    {255,188,83}},
-    {"CONTROLE :", {140,225,150}},
-}
+local function drawCredits()
+    panel(120, 70, 400, 340)
+    centered(I.t("credits_title"), 86, fonts.f32, {235,244,248})
+    centered(I.t("credits_1"), 150, fonts.f32, {255,188,83})
+    centered(I.t("credits_2"), 214, fonts.f24, {198,216,227})
+    centered(I.t("credits_3"), 250, fonts.f24, {198,216,227})
+    centered(I.t("credits_4"), 280, fonts.f24, {198,216,227})
+    centered(I.t("credits_5"), 336, fonts.f16, {82,226,218})
+    centered(I.t("menu_foot"), 372, fonts.f16, {120,151,170})
+end
+
 local NARRATION = {179,205,219}
 
--- Portrait vectoriel de LUNA : autonome, sans fichier image a charger.
+-- Portrait vectoriel de LUNA : dessin de secours quand l'illustration est absente.
 local function drawLunaPortrait(x, y)
     color(3,14,28); rect(x, y, 60, 60)
     color(28,100,119); rect(x, y, 60, 2); rect(x, y, 2, 60)
@@ -942,110 +1156,213 @@ local function drawLunaPortrait(x, y)
     color(48,225,220); rect(x+42,y+24,3,5)
 end
 
+local function cardsOf() return I.mission(cardMission)[cardKind] or EMPTY end
+
+-- Interlocuteur d'un paragraphe : identifie par son prefixe ("LUNA :", ...), selon la langue.
+local function speakerOf(line)
+    for _,sp in ipairs(I.speakers()) do
+        if line:sub(1, #sp[1]) == sp[1] then return sp end
+    end
+    return nil
+end
+
 local function drawCard()
-    local c = cardList[cardIdx]
+    local list = cardsOf()
+    local c = list[cardIdx]
+    if not c then return end
     -- Bandeau illustre en haut (640x150 virtuels = 320x75 ecran) ; decor de secours si l'image manque.
     color(3,14,28); rect(0, 0, W, 150)
-    if not Art.draw(cardArt and cardArt[cardIdx], cardT) then
+    if not Art.scene(cardArt and cardArt[cardIdx], cardT) then
         drawLunaPortrait(14, 20)
         color(28,100,119); rect(90, 74, 500, 2)
     end
-    -- Bandeau de titre sur le bas de l'illustration.
-    color(3,14,28); rect(0, 112, W, 40)
-    color(43,205,211); rect(0, 110, W, 2); rect(0, 152, W, 2)
-    color(255,190,79); rect(0, 110, 40, 2); rect(W-40, 152, 40, 2)
-    local f = fit(c[1], 600, {fonts.f24, fonts.f16})
-    centered(c[1], 118, f, {236,245,248})
-    panel(30, 160, 580, 314)
+    -- Mise en forme du texte : couleur par interlocuteur, portrait du premier interlocuteur.
     local lines = wrap(c[2], 500, 16)
-    local cols, cur, newPara = {}, NARRATION, true
+    local cols, cur, newPara, first = {}, NARRATION, true, nil
     for i,l in ipairs(lines) do
         if l == "" then newPara = true; cols[i] = NARRATION
         else
             if newPara then
                 cur = NARRATION
-                for _,sp in ipairs(SPEAKERS) do
-                    if l:sub(1, #sp[1]) == sp[1] then cur = sp[2] end
-                end
+                local sp = speakerOf(l)
+                if sp then cur = sp[2]; first = first or sp end
                 newPara = false
             end
             cols[i] = cur
         end
     end
+    -- Portrait de l'interlocuteur (cadre 104x104 sur le bandeau).
+    if first then
+        color(3,14,28); rect(10, 10, 108, 108)
+        color(43,205,211); rect(10, 10, 108, 2); rect(10, 116, 108, 2); rect(10, 10, 2, 108); rect(116, 10, 2, 108)
+        color(255,190,79); rect(10, 10, 14, 2); rect(10, 10, 2, 12)
+        if not Art.portrait(first[3], 14, 14) then
+            color(20,45,68); rect(14, 14, 96, 96)
+            centered(first[1]:sub(1, 1), 46, fonts.f32, first[2], 14, 96)
+        end
+    end
+    -- Bandeau de titre sur le bas de l'illustration.
+    color(3,14,28); rect(0, 112, W, 40)
+    color(43,205,211); rect(0, 110, W, 2); rect(0, 152, W, 2)
+    color(255,190,79); rect(0, 110, 40, 2); rect(W-40, 152, 40, 2)
+    local f = fit(c[1], first and 480 or 600, {fonts.f24, fonts.f16})
+    centered(c[1], 118, f, {236,245,248}, first and 130 or 0, first and 500 or W)
+    panel(30, 160, 580, 314)
     drawLines(lines, 70, 174, 500, fonts.f16, cols, 20)
-    local prompt = (cardIdx == #cardList) and cardLast or "A : CONTINUER"
+    local prompt = (cardIdx == #list) and I.t(cardLastKey) or I.t("card_next")
     centered(prompt, 436, fonts.f16, {255,190,81})
-    centered(cardIdx.."/"..#cardList, 454, fonts.f16, {90,110,130})
+    centered(cardIdx.."/"..#list, 454, fonts.f16, {90,110,130})
+end
+
+-- ---------------------------------------------------------------------------
+-- Menu systeme (MENU court) et capture d'ecran
+-- ---------------------------------------------------------------------------
+local function sysItems()
+    local it = {}
+    it[#it+1] = {id="resume",   label=I.t("m_resume")}
+    it[#it+1] = {id="controls", label=I.t("m_controls")}
+    it[#it+1] = {id="lang",     label=I.t("m_lang", I.langNames[I.lang])}
+    it[#it+1] = {id="kb",       label=I.t("m_kb", I.kbLabel())}
+    it[#it+1] = {id="music",    label=I.t("m_music", I.onoff(Audio.musicOn))}
+    it[#it+1] = {id="shot",     label=I.t("m_shot")}
+    it[#it+1] = {id="credits",  label=I.t("m_credits")}
+    if state ~= "title" then it[#it+1] = {id="title", label=I.t("m_totitle")} end
+    it[#it+1] = {id="quit",     label=I.t(I.aka and "m_quit_aka" or "m_quit_pc")}
+    return it
+end
+
+local function drawSysMenu()
+    if sysPage == "help" then drawHelp("menu_foot"); return end
+    if sysPage == "credits" then drawCredits(); return end
+    local items = sysItems()
+    local h = 96 + #items * 30
+    local y0 = math.floor((H - h) / 2)
+    panel(80, y0, 480, h)
+    centered(I.t("menu_title"), y0 + 14, fonts.f32, {235,244,248})
+    color(43,205,211); rect(W/2-60, y0 + 54, 120, 2)
+    local y = y0 + 68
+    for i,it in ipairs(items) do
+        if i == sysSel then
+            color(255,190,79); rect(100, y+8, 14, 2); rect(526, y+8, 14, 2)
+            centered(it.label, y, fonts.f16, {255,190,83})
+        else centered(it.label, y, fonts.f16, {82,229,218}) end
+        y = y + 30
+    end
+    centered(I.t("menu_foot"), y0 + h - 24, fonts.f16, {120,151,170})
+end
+
+local function takeShot()
+    if not (love.graphics and love.graphics.captureScreenshot) then
+        setToast(I.t("shot_na"), 3); return
+    end
+    local name = string.format("lunar_%04d.png", Save.shot + 1)
+    local ok = pcall(love.graphics.captureScreenshot, name)
+    if ok then
+        Save.shot = Save.shot + 1
+        Save.save()
+        setToast(I.t("shot_ok", name), 3)
+    else
+        setToast(I.t("shot_fail"), 3)
+    end
+end
+
+local function drawToast()
+    if toastT <= 0 or toast == "" then return end
+    local w = math.min(560, #toast * 16 + 40)
+    panel(W/2 - w/2, 74, w, 36)
+    centered(toast, 83, fonts.f16, {236,245,248})
 end
 
 local function drawOverlays()
     if paused then
         panel(160, 150, 320, 180)
-        centered("PAUSE", 166, fonts.f32, {236,244,248})
-        centered("C : reprendre", 222, fonts.f16, {82,226,218})
-        centered("MENU : titre", 248, fonts.f16, {82,226,218})
-        centered("B : musique "..(Audio.musicOn and "OUI" or "NON"), 274, fonts.f16, {82,226,218})
+        centered(I.t("pause"), 166, fonts.f32, {236,244,248})
+        centered(I.t("pause_resume"), 222, fonts.f16, {82,226,218})
+        centered(I.t("pause_menu"), 248, fonts.f16, {82,226,218})
+        centered(I.t("pause_music", I.onoff(Audio.musicOn)), 274, fonts.f16, {82,226,218})
     elseif state == "debrief" then
-        local m = mission()
+        local t = I.mission(missionIndex)
         panel(95, 100, 450, 280)
-        centered("MISSION ACCOMPLIE", 116, fonts.f24, {76,233,216})
-        local f = fit(m.name, 420, {fonts.f24, fonts.f16})
-        centered(m.name, 152, f, {255,190,81})
-        centered("Carburant : "..math.floor(fuel).."%", 202, fonts.f16, {198,216,227})
-        centered("Coque : "..math.floor(hull).."%", 228, fonts.f16, {198,216,227})
-        centered("Temps : "..string.format("%d:%02d", math.floor(missionTime/60), math.floor(missionTime%60)), 254, fonts.f16, {198,216,227})
-        if Save.ok then centered("Progression sauvegardee", 290, fonts.f16, {120,200,120}) end
-        centered("A : CONTINUER", 336, fonts.f16, {78,227,218})
+        centered(I.t("debrief_title"), 116, fonts.f24, {76,233,216})
+        local f = fit(t.name, 420, {fonts.f24, fonts.f16})
+        centered(t.name, 152, f, {255,190,81})
+        centered(I.t("fuel", math.floor(fuel)), 202, fonts.f16, {198,216,227})
+        centered(I.t("hull", math.floor(hull)), 228, fonts.f16, {198,216,227})
+        centered(I.t("time", string.format("%d:%02d", math.floor(missionTime/60), math.floor(missionTime%60))), 254, fonts.f16, {198,216,227})
+        if Save.ok then centered(I.t("saved"), 290, fonts.f16, {120,200,120}) end
+        centered(I.t("card_next"), 336, fonts.f16, {78,227,218})
     end
 end
 
-function Game.draw()
-    if state == "card" then
-        drawSky(); drawRidges(); drawTerrain(); drawCard(); return
-    end
-    drawSky()
-    if state == "title" then drawRidges(); drawTerrain(); drawTitle(); return end
-    if state == "instructions" then drawRidges(); drawTerrain(); drawInstructions(); return end
-
-    drawRidges()
+local function drawWorld()
     local m = mission()
-    if m.decor and m.decor.kind == "station" then
-        drawStation(m.decor.x, groundAt(m.decor.x), m.decor.big)
-    elseif m.decor and m.decor.kind == "mast" then
-        drawMast(m.decor.x, groundAt(m.decor.x))
-    end
+    love.graphics.push()
+    love.graphics.translate(-math.floor(camX), 0)
+    drawDecor()
+    love.graphics.pop()
     drawTerrain()
+    love.graphics.push()
+    love.graphics.translate(-math.floor(camX), 0)
     drawPads()
     drawBeams()
     if m.cell and cargo == 0 then drawCell(m.cell.x, m.cell.y) end
     for _,r in ipairs(m.rocks or EMPTY) do drawRock(r.x, groundAt(r.x) - 9) end
     for _,d in ipairs(m.debris or EMPTY) do drawDebris(d) end
-    drawWindStreaks()
-    drawParticles(); drawShip(); drawHUD()
-    drawBanner(); drawMessage(); drawOverlays()
+    drawParticles(); drawShip()
+    love.graphics.pop()
+end
+
+function Game.draw()
+    -- Capture d'ecran demandee depuis le menu : prise sur une image propre (sans menu ni message).
+    local doShot = false
+    if shotPending > 0 then
+        shotPending = shotPending - 1
+        if shotPending == 0 then doShot = true end
+    end
+
+    if state == "card" then
+        drawSky(); drawRidges(); drawTerrain(); drawCard()
+    elseif state == "title" then
+        drawSky(); drawRidges(); drawTerrain(); drawTitle()
+    elseif state == "instructions" then
+        drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
+    else
+        drawSky()
+        drawRidges()
+        drawWorld()
+        drawWindStreaks()
+        drawArrows(); drawHUD()
+        drawBanner(); drawMessage(); drawOverlays()
+    end
+    if doShot then takeShot() end
+    if sysOpen and shotPending == 0 then drawSysMenu() end
+    drawToast()
 end
 
 -- ---------------------------------------------------------------------------
 -- Entrees
 -- ---------------------------------------------------------------------------
-local function showCards(list, done, sky, lastPrompt, art)
-    if #list == 0 then done(); return end
-    cardList, cardIdx, cardDone = list, 1, done
-    cardArt, cardT = art, 0
-    cardLast = lastPrompt or "A : CONTINUER"
+local function showCards(mi, kind, done, sky, lastKey)
+    cardMission, cardKind = mi, kind
+    if #cardsOf() == 0 then done(); return end
+    cardIdx, cardDone = 1, done
+    cardLastKey = lastKey or "card_next"
+    cardArt = Data.art and Data.art[mi] and Data.art[mi][kind]
+    cardT = 0
     skyOverride = sky
     state = "card"
 end
 
 local function beginMission(i)
     local m = Data.missions[i]
-    showCards(m.pre or EMPTY, function() startMission(i) end, m.sky, "A : DECOLLER", Data.art and Data.art[i] and Data.art[i].pre)
+    showCards(i, "pre", function() startMission(i) end, m.sky, "card_launch")
 end
 
 local function backToTitle()
     skyOverride = nil
     titleAnim = 0
     missionIndex = 1
+    paused = false
     resetMission()
     buildMenu()
     state = "title"
@@ -1055,16 +1372,15 @@ local function afterDebrief()
     local m = mission()
     local nextI = missionIndex + 1
     if nextI > #Data.missions then
-        showCards(m.post or EMPTY, backToTitle, m.sky, "A : TITRE", Data.art and Data.art[missionIndex] and Data.art[missionIndex].post)
+        showCards(missionIndex, "post", backToTitle, m.sky, "card_title")
     else
-        showCards(m.post or EMPTY, function() beginMission(nextI) end, m.sky, "A : MISSION SUIVANTE", Data.art and Data.art[missionIndex] and Data.art[missionIndex].post)
+        showCards(missionIndex, "post", function() beginMission(nextI) end, m.sky, "card_nextm")
     end
 end
 
 local function toggleMusic()
     Audio.toggleMusic()
-    Save.music = Audio.musicOn and 1 or 0
-    Save.save()
+    saveSettings()
 end
 
 local function confirm(k) return k == "return" or k == "space" end
@@ -1076,16 +1392,59 @@ local function doMenu(it)
     elseif it.act == "chapter" then beginMission(it.mission) end
 end
 
-function Game.keypressed(key)
-    if key == "escape" then
-        if state == "game" and paused then paused = false
-        elseif state ~= "title" then
-            Audio.thrust(false)
-            backToTitle()
-        end
+local function openSys()
+    sysOpen, sysPage, sysSel = true, "main", 1
+    Audio.thrust(false)
+    Audio.play("menu")
+end
+
+local function closeSys() sysOpen = false end
+
+-- Action d'un element du menu systeme.
+local function sysAct(id)
+    Audio.play("menu")
+    if id == "resume" then closeSys()
+    elseif id == "controls" then sysPage = "help"
+    elseif id == "credits" then sysPage = "credits"
+    elseif id == "lang" then I.nextLang(); buildMenu(); saveSettings()
+    elseif id == "kb" then I.nextKb(); saveSettings()
+    elseif id == "music" then toggleMusic()
+    elseif id == "shot" then closeSys(); shotPending = 2
+    elseif id == "title" then closeSys(); Audio.thrust(false); backToTitle()
+    elseif id == "quit" then
+        closeSys()
+        if love.event and love.event.quit then pcall(love.event.quit) end
+    end
+end
+
+local function sysKey(key)
+    if sysPage ~= "main" then
+        if confirm(key) or key == "x" then sysPage = "main" end
         return
     end
-    if key == "x" or key == "b" or key == "m" then toggleMusic(); return end
+    local items = sysItems()
+    if key == "up" then sysSel = sysSel - 1; if sysSel < 1 then sysSel = #items end; Audio.play("menu")
+    elseif key == "down" then sysSel = sysSel + 1; if sysSel > #items then sysSel = 1 end; Audio.play("menu")
+    elseif key == "left" or key == "right" then
+        local it = items[sysSel]
+        if it and (it.id == "lang" or it.id == "kb" or it.id == "music") then sysAct(it.id) end
+    elseif confirm(key) then
+        local it = items[sysSel]; if it then sysAct(it.id) end
+    elseif key == "x" then closeSys()
+    end
+end
+
+function Game.keypressed(key, scancode, isrepeat)
+    if key == "f12" then
+        if not isrepeat then takeShot() end
+        return
+    end
+    if key == "escape" then
+        if not isrepeat and not escDown then escDown = time end
+        return
+    end
+    if sysOpen then sysKey(key); return end
+    if key == "x" or key == "m" then toggleMusic(); return end
     if (key == "p" or key == "c") and state == "game" then
         paused = not paused
         Audio.thrust(false)
@@ -1096,9 +1455,9 @@ function Game.keypressed(key)
     end
 
     if state == "title" then
-        if key == "up" or key == "z" or key == "w" then
+        if key == "up" then
             menuSel = menuSel - 1; if menuSel < 1 then menuSel = #menu end; Audio.play("menu")
-        elseif key == "down" or key == "s" then
+        elseif key == "down" then
             menuSel = menuSel + 1; if menuSel > #menu then menuSel = 1 end; Audio.play("menu")
         elseif key == "u" then
             Save.unlockAll = true; buildMenu()
@@ -1111,9 +1470,9 @@ function Game.keypressed(key)
         if confirm(key) then
             Audio.play("card")
             cardIdx = cardIdx + 1; cardT = 0
-            if cardIdx > #cardList then
+            if cardIdx > #cardsOf() then
                 local d = cardDone
-                cardList, cardDone = nil, nil
+                cardDone = nil
                 d()
             end
         end
@@ -1129,7 +1488,19 @@ function Game.keypressed(key)
     end
 end
 
-function Game.keyreleased(key) end
+-- MENU (Echap) : appui court = menu ; appui long (>= 0,7 s) = capture d'ecran, detecte au relachement.
+function Game.keyreleased(key)
+    if key ~= "escape" then return end
+    local held = escDown and (time - escDown) or 0
+    escDown = nil
+    if held >= LONG_PRESS then takeShot(); return end
+    if sysOpen then
+        if sysPage ~= "main" then sysPage = "main" else closeSys() end
+    else
+        openSys()
+    end
+end
+
 function Game.focus(focused)
     if not focused and state == "game" then paused = true; Audio.thrust(false) end
 end

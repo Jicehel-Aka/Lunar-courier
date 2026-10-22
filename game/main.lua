@@ -12,6 +12,6 @@ end
 
 function love.update(dt) Game.update(dt) end
 function love.draw() Game.draw() end
-function love.keypressed(key) Game.keypressed(key) end
+function love.keypressed(key, scancode, isrepeat) Game.keypressed(key, scancode, isrepeat) end
 function love.keyreleased(key) Game.keyreleased(key) end
 function love.focus(focused) Game.focus(focused) end
