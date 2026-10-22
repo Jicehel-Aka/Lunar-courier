@@ -47,6 +47,7 @@ local ridge1, ridge2 = {}, {}
 local cardList, cardIdx, cardDone, cardLast = nil, 1, nil, "A : CONTINUER"
 local menu, menuSel = {}, 1
 local skyOverride = nil
+local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
 
 local PAL = {
     earth = {bg={4,9,22},  band1={7,17,37},  band2={9,23,43},  r1={9,20,38},  r2={16,30,48},
@@ -221,6 +222,7 @@ local function buildMenu()
 end
 
 function Game.load()
+    titleAnim = 0
     if os and os.time then math.randomseed(os.time())
     elseif love.timer and love.timer.getTime then math.randomseed(math.floor(love.timer.getTime()*100000))
     else math.randomseed(12345) end
@@ -317,6 +319,7 @@ end
 function Game.update(dt)
     dt = math.min(dt, 1/30)
     time = time + dt
+    if state == "title" then titleAnim = math.min(titleAnim + dt, 4.2) end
     syncMusic()
     if messageTimer > 0 then messageTimer = math.max(0, messageTimer - dt) end
     for k,v in pairs(noteTimers) do noteTimers[k] = v - dt end
@@ -796,53 +799,85 @@ end
 -- Ecrans
 -- ---------------------------------------------------------------------------
 local function drawTitle()
-    -- Bandeau editorial et sceau de mission.
+    -- La surface logique fait 640x480, affichee en 320x240 sur l AKA :
+    -- les contours importants font donc au moins 2 px logiques (= 1 px physiques).
+    local t = titleAnim
+    local function easeOut(u)
+        u = clamp(u, 0, 1)
+        return 1 - (1-u)*(1-u)*(1-u)
+    end
+    local land = easeOut(t / 2.55)
+    local shipY = -32 + (226 + 32) * land
+    local flameOn = t < 2.48
+    local titleProgress = easeOut((t - 1.85) / 1.12)
+    local titleY = -62 + 168 * titleProgress
+
+    -- En-tete : le titre reste cache en haut puis descend apres l arrivee du vaisseau.
     color(32,196,207); rect(W/2-118, 31, 236, 2)
     color(255,190,79); rect(W/2-42, 35, 84, 2)
     centered("UNE AVENTURE LUNAIRE", 44, fonts.f24, {90,224,227})
-    centered("LUNAR COURIER", 82, fonts.f48, {235,244,248})
-    color(255,183,75); rect(W/2-72, 140, 144, 2)
-    centered("LIVREZ LA DERNIERE LUMIERE", 151, fonts.f16, {255,198,111})
+    centered("LUNAR COURIER", titleY, fonts.f48, {235,244,248})
 
-    -- Grande illustration vectorielle en pixel art : halo, anneaux de navigation,
-    -- capsule de livraison et vaisseau agrandi au centre de la composition.
-    color(8,25,43)
-    love.graphics.circle("fill", W/2, 228, 82)
-    color(15,46,68)
-    love.graphics.circle("line", W/2, 228, 76)
+    -- Halo orbital compact, garde derriere le vaisseau pour ne pas brouiller le titre.
+    color(7,20,36)
+    love.graphics.circle("fill", W/2, 235, 57)
+    color(16,48,68)
+    love.graphics.circle("line", W/2, 235, 53)
     color(29,89,109)
-    love.graphics.circle("line", W/2, 228, 64)
+    love.graphics.circle("line", W/2, 235, 44)
     color(45,118,132)
-    love.graphics.circle("line", W/2, 228, 52)
-    color(255,190,79); rect(W/2-64, 226, 128, 2)
-    color(57,206,208); rect(W/2-2, 163, 4, 130)
-    color(255,190,79); rect(W/2-3, 222, 6, 12)
-    -- Balise lointaine et son faisceau de guidage.
-    color(29,72,91); rect(W/2-125, 238, 38, 3)
-    color(52,151,166); rect(W/2-113, 218, 3, 20)
-    color(255,190,79); rect(W/2-116, 214, 9, 5)
-    color(29,72,91); rect(W/2+87, 238, 38, 3)
-    color(52,151,166); rect(W/2+109, 218, 3, 20)
-    color(58,220,216); rect(W/2+106, 214, 9, 5)
+    love.graphics.circle("line", W/2, 235, 34)
 
-    love.graphics.push(); love.graphics.translate(W/2, 218); love.graphics.scale(1.85, 1.85)
+    -- Plateforme d arrivee : silhouettes epaisses pour survivre a la reduction 2:1.
+    color(24,47,62); rect(W/2-77, 260, 154, 7)
+    color(48,197,207); rect(W/2-65, 259, 130, 2)
+    color(255,190,79); rect(W/2-17, 257, 34, 3)
+    color(32,78,96); rect(W/2-92, 267, 184, 2)
+    color(50,114,131); rect(W/2-52, 270, 104, 2)
+
+    -- Faisceaux de guidage et balises laterales.
+    color(29,72,91); rect(W/2-125, 242, 38, 3)
+    color(52,151,166); rect(W/2-113, 224, 3, 18)
+    color(255,190,79); rect(W/2-117, 219, 11, 5)
+    color(29,72,91); rect(W/2+87, 242, 38, 3)
+    color(52,151,166); rect(W/2+109, 224, 3, 18)
+    color(58,220,216); rect(W/2+106, 219, 11, 5)
+
+    -- Le moteur s anime pendant la descente, puis s eteint juste avant le contact.
+    love.graphics.push()
+    love.graphics.translate(W/2, shipY)
+    love.graphics.scale(1.85, 1.85)
     local save = {x=ship.x, y=ship.y, angle=ship.angle, thrust=ship.thrust, landed=ship.landed}
-    ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 0, 0, 0, true, false
+    ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 0, 0, 0, flameOn, false
     drawShip()
     ship.x, ship.y, ship.angle, ship.thrust, ship.landed = save.x, save.y, save.angle, save.thrust, save.landed
     love.graphics.pop()
 
-    -- Filet de separation et commandes dans une zone reservee, sans recouvrir l'illustration.
-    color(39,88,110); rect(92, 274, 456, 1)
-    local y = 292
+    -- Petites poussieres au contact : pulse bref, sans surcharge visuelle.
+    if t >= 2.42 and t < 2.92 then
+        local pulse = math.floor(t * 22) % 2
+        color(pulse == 0 and 255 or 120, pulse == 0 and 190 or 220, pulse == 0 and 105 or 220)
+        rect(W/2-39, 263, 9, 2); rect(W/2+30, 263, 9, 2)
+        color(114,157,174)
+        rect(W/2-48, 256, 4, 2); rect(W/2+44, 256, 4, 2)
+    end
+
+    -- Sous-titre discret mais lisible sur l ecran physique.
+    if t >= 2.65 then
+        centered("LIVREZ LA DERNIERE LUMIERE", 164, fonts.f16, {255,198,111})
+    end
+
+    -- Menu en zone basse, avec separation suffisamment epaisse a l echelle AKA.
+    color(39,88,110); rect(92, 286, 456, 2)
+    local y = 306
     for i,it in ipairs(menu) do
         if i == menuSel then
-            color(255,190,79); rect(170, y+9, 18, 2); rect(452, y+9, 18, 2)
+            color(255,190,79); rect(170, y+10, 18, 2); rect(452, y+10, 18, 2)
             centered("> "..it.label.." <", y, fonts.f24, {255,190,83})
         else centered(it.label, y, fonts.f24, {82,229,218}) end
         y = y + 34
     end
-    centered("HAUT/BAS + A    B : MUSIQUE "..(Audio.musicOn and "OUI" or "NON"), 448, fonts.f16, {130,157,179})
+    centered("HAUT/BAS + A    B : MUSIQUE "..(Audio.musicOn and "OUI" or "NON"), 448, fonts.f16, {158,184,202})
 end
 
 local function drawInstructions()
@@ -969,6 +1004,7 @@ end
 
 local function backToTitle()
     skyOverride = nil
+    titleAnim = 0
     missionIndex = 1
     resetMission()
     buildMenu()
