@@ -64,6 +64,29 @@ if MODE ~= "noaudio" then
     return s
   end
 end
+-- image stub : lit la vraie taille du PNG (en-tete IHDR) ; absent en mode noaudio (teste le decor de secours)
+IMG = {loaded={}, drawn=0, missing={}}
+function love.graphics.draw(img, x, y, r, sx, sy)
+  if type(img) ~= "table" or not img.w then viol("draw: not an image") return end
+  if type(x) ~= "number" or type(y) ~= "number" then viol("draw: bad position") end
+  IMG.drawn = IMG.drawn + 1
+end
+if MODE ~= "noaudio" then
+  function love.graphics.newImage(path)
+    local f = io.open(ROOT.."/"..path, "rb")
+    if not f then IMG.missing[path] = true; error("Could not open file "..path) end
+    local d = f:read(32); f:close()
+    local function u32(i) return d:byte(i)*16777216 + d:byte(i+1)*65536 + d:byte(i+2)*256 + d:byte(i+3) end
+    local w, h = u32(17), u32(21)
+    IMG.loaded[path] = {w=w, h=h, n=((IMG.loaded[path] or {n=0}).n)+1}
+    local im = {w=w, h=h}
+    function im:getWidth() return self.w end
+    function im:getHeight() return self.h end
+    function im:setFilter() end
+    return im
+  end
+end
+function __img() return IMG end
 -- filesystem stub (memoire)
 FS = {}
 if MODE ~= "noaudio" then
@@ -160,7 +183,24 @@ for i in range(1, nm+1):
     if rad is not None:
         for j in range(1, len(rad)+1):
             if len(rad[j]['text']) > 66: problems.append(f"M{i} radio {j} len {len(rad[j]['text'])}")
+art_errs = lua.eval('''(function()
+  local D = require("src.data"); local out = {}
+  for i,m in ipairs(D.missions) do
+    local a = D.art and D.art[i]
+    if not a then out[#out+1] = "M"..i..": no art entry"
+    else
+      if #a.pre ~= #(m.pre or {}) then out[#out+1] = "M"..i..": art.pre count "..#a.pre.." != cards "..#(m.pre or {}) end
+      if #a.post ~= #(m.post or {}) then out[#out+1] = "M"..i..": art.post count "..#a.post.." != cards "..#(m.post or {}) end
+      for _,l in ipairs{a.pre, a.post} do for _,n in ipairs(l) do
+        local f = io.open(ROOT.."/assets/scenes/"..n..".png", "rb")
+        if not f then out[#out+1] = "M"..i..": missing image "..n else f:close() end
+      end end
+    end
+  end
+  return table.concat(out, "; ") end)()''')
+if art_errs: problems.append("art: " + art_errs)
 print(f"{nm} missions, {ncards} story cards; content problems:", problems or "none")
+CONTENT = problems
 
 # ---------------------------------------------------------------- 2. ecrans
 errs=[]
@@ -185,6 +225,7 @@ autopilot = ap.make_autopilot(dbg, beams, debris, step, hold, clamp)
 results={}
 advance_to_game()
 total_attempts=0
+FAILED=[]
 for mi in range(1, nm+1):
     ok=False
     for attempt in range(1,8):
@@ -199,7 +240,7 @@ for mi in range(1, nm+1):
             hold('left',False); hold('right',False); hold('up',False)
             results[mi]=(attempt,'fail',res[1]); key('v'); step(1)
     if not ok:
-        print("mission",mi,"NOT completed by naive autopilot", results[mi]); lua.execute(f'require("src.game")._goto({mi+1})') if mi<nm else None; continue
+        print("mission",mi,"NOT completed by naive autopilot", results[mi]); FAILED.append(mi); lua.execute(f'require("src.game")._goto({mi+1})') if mi<nm else None; continue
     hold('left',False); hold('right',False); hold('up',False)
     key('space'); step(1)            # landed -> debrief
     st_deb = dbg()['state']
@@ -220,3 +261,21 @@ if mode != "noaudio":
     print("audio plays:", {k: a['plays'][k] for k in a['plays']})
 v = lua.eval('__viol()')
 print("VIOLATIONS:", {k: v[k] for k in v} or "none")
+img = lua.eval('__img()')
+problems = []
+if mode != "noaudio":
+    loaded = {k: (img['loaded'][k]['w'], img['loaded'][k]['h']) for k in img['loaded']}
+    print("images loaded:", len(loaded), "| draws:", img['drawn'], "| missing:", sorted(k for k in img['missing']) or "none")
+    for k,(w,h) in sorted(loaded.items()):
+        if w < 320 or h != 75: problems.append(f"image {k} is {w}x{h} (need width>=320, height 75)")
+    miss = sorted(k for k in img['missing'])
+    if miss: problems.append("missing images: "+", ".join(miss))
+    if img['drawn'] == 0: problems.append("no image was ever drawn")
+else:
+    print("images: none (fallback banner path) | draws:", img['drawn'])
+for k in v: problems.append("violation: "+str(k))
+if FAILED: problems.append("missions not completed: "+str(FAILED))
+if CONTENT: problems.append("content: "+str(CONTENT))
+if problems:
+    print("TEST PROBLEMS:"); [print("  -", x) for x in problems]; sys.exit(1)
+print("ALL OK")

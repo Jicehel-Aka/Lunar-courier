@@ -255,4 +255,27 @@ D.missions = {
 }
 
 D.cardsInstruction = true
+
+-- Illustrations des cartes (assets/scenes/<nom>.png), une par carte, dans l'ordre des cartes pre puis post.
+D.art = {
+ {pre={"base","holo"}, post={"radar"}},
+ {pre={"explorateur"}, post={"tour"}},
+ {pre={"hangar"}, post={"regie"}},
+ {pre={"cristaux"}, post={"mine"}},
+ {pre={"ruines"}, post={"coeur"}},
+ {pre={"faisceau"}, post={"colonie","ville","soleil"}},
+ {pre={"couchant","terre"}, post={"radar"}},
+ {pre={"camp"}, post={"regie"}},
+ {pre={"soleil"}, post={"tour"}},
+ {pre={"epave"}, post={"asteroides"}},
+ {pre={"cargo"}, post={"hangar"}},
+ {pre={"depart"}, post={"cratere","grotte","base"}},
+ {pre={"aube","camp","ruines","faisceau","depart"}, post={"ville"}},
+ {pre={"soleil"}, post={"radar"}},
+ {pre={"mine"}, post={"cratere"}},
+ {pre={"radar","regie","grotte"}, post={"terre"}},
+ {pre={"explorateur"}, post={"couchant","holo","camp","orbite"}},
+ {pre={"depart"}, post={"tour","holo","faisceau","regie","colonie","orbite"}},
+}
+
 return D

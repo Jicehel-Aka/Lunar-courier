@@ -5,6 +5,7 @@
 local Data  = require("src.data")
 local Audio = require("src.audio")
 local Save  = require("src.save")
+local Art   = require("src.art")
 local Game = {}
 
 local W, H = 640, 480
@@ -45,8 +46,10 @@ local tg, runs, maxG = {}, {}, 390   -- terrain : hauteur par colonne, segments,
 local pads = {}
 local ridge1, ridge2 = {}, {}
 local cardList, cardIdx, cardDone, cardLast = nil, 1, nil, "A : CONTINUER"
+local cardArt, cardT = nil, 0   -- illustrations des cartes, temps ecoule sur la carte courante
 local menu, menuSel = {}, 1
 local skyOverride = nil
+local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
 
 local PAL = {
     earth = {bg={4,9,22},  band1={7,17,37},  band2={9,23,43},  r1={9,20,38},  r2={16,30,48},
@@ -118,10 +121,17 @@ local function drawLines(lines, x0, y, w, font, c, lh)
 end
 
 local function panel(x,y,w,h)
-    color(5,13,28); rect(x,y,w,h)
+    color(4,11,25); rect(x,y,w,h)
+    color(9,23,40); rect(x+2,y+2,w-4,math.min(18,h-4))
     color(43,205,211)
     if love.graphics.setLineWidth then love.graphics.setLineWidth(1) end
     love.graphics.rectangle("line",x,y,w,h)
+    -- Coins lumineux : une signature visuelle commune aux menus, cartes et HUD.
+    color(255,190,79)
+    rect(x+1,y+1,10,2); rect(x+1,y+1,2,8)
+    color(48,197,207)
+    rect(x+w-9,y+1,8,2); rect(x+w-2,y+1,2,8)
+    rect(x+1,y+h-2,8,1); rect(x+w-8,y+h-2,7,1)
 end
 
 -- ---------------------------------------------------------------------------
@@ -214,6 +224,7 @@ local function buildMenu()
 end
 
 function Game.load()
+    titleAnim = 0
     if os and os.time then math.randomseed(os.time())
     elseif love.timer and love.timer.getTime then math.randomseed(math.floor(love.timer.getTime()*100000))
     else math.randomseed(12345) end
@@ -310,6 +321,8 @@ end
 function Game.update(dt)
     dt = math.min(dt, 1/30)
     time = time + dt
+    if state == "title" then titleAnim = math.min(titleAnim + dt, 4.2) end
+    if state == "card" then cardT = cardT + dt end
     syncMusic()
     if messageTimer > 0 then messageTimer = math.max(0, messageTimer - dt) end
     for k,v in pairs(noteTimers) do noteTimers[k] = v - dt end
@@ -485,6 +498,16 @@ local function drawSky()
             rect(i*24, 150 - i*4 + (i%2)*3, 52, 20)
         end
     end
+    -- Etoiles lointaines fixes, plus fines que les etoiles animees au premier plan.
+    for i = 0, 28 do
+        local sx = (i*137 + 19) % W
+        local sy = (i*71 + 13) % 278
+        if i % 4 == 0 then color(73,133,166) else color(39,77,111) end
+        rect(sx, sy, (i%5==0) and 3 or 2, 2)
+        if i % 7 == 0 then
+            color(105,197,210); rect(sx-2, sy+1, 7, 1); rect(sx+1, sy-2, 1, 7)
+        end
+    end
     for _,st in ipairs(stars) do
         local pulse = math.floor((time*2 + st.phase)*2) % 5
         if pulse == 0 then color(92,157,190) elseif pulse == 1 then color(140,203,222) else color(193,222,235) end
@@ -498,6 +521,16 @@ local function drawRidges()
     for i = 0, 31 do rect(i*20, ridge1[i], 20, H - ridge1[i]) end
     colorT(p.r2)
     for i = 0, 31 do rect(i*20, ridge2[i], 20, H - ridge2[i]) end
+    -- Quelques facettes anguleuses donnent du relief sans texture couteuse.
+    for i = 0, 15 do
+        local x = i*41 + 7
+        local y = ridge2[(i*2)%32] + 10 + (i%3)*7
+        colorT(i%2==0 and {26,43,62} or {30,45,64})
+        if y < H-12 then
+            love.graphics.polygon("fill",x,y,x+13,y-8,x+27,y,x+20,y+5)
+            color(47,64,81); rect(x+8,y-3,8,2)
+        end
+    end
 end
 
 local function drawStation(cx, base, big)
@@ -535,6 +568,26 @@ local function drawTerrain()
     for _,r in ipairs(runs) do
         if r.y < maxG then colorT(p.ground); rect(r.x, r.y + 2, r.w, maxG - r.y) end
         colorT(p.top); rect(r.x, r.y, r.w, 2)
+    end
+    -- Strates sombres et petites inclusions minerales, deterministes pour rester legers.
+    for i = 1, 24 do
+        local x = (i*53 + 17) % W
+        local gy = groundAt(x)
+        local y = gy + 10 + (i*19)%54
+        if y < H-3 then
+            colorT(i%3==0 and {27,39,51} or {39,51,63})
+            rect(x,y,5+(i%4)*3,2)
+            colorT(p.speck); rect(x+2,y+3,2,1)
+        end
+    end
+    -- Crateres stylises sur les zones visibles du sol.
+    for i = 1, 8 do
+        local x = (i*79 + 31) % W
+        local gy = groundAt(x)
+        if gy < H-12 then
+            color(30,42,54); rect(x-7,gy+4,15,3)
+            color(68,82,94); rect(x-5,gy+4,9,1)
+        end
     end
     colorT(p.speck)
     for i = 1, 16 do
@@ -749,24 +802,87 @@ end
 -- Ecrans
 -- ---------------------------------------------------------------------------
 local function drawTitle()
-    color(32,196,207); rect(W/2-76, 36, 152, 2)
-    centered("UNE AVENTURE LUNAIRE", 48, fonts.f24, {90,224,227})
-    centered("LUNAR COURIER", 88, fonts.f48, {235,244,248})
-    color(255,183,75); rect(W/2-54, 146, 108, 2)
-    centered("Livrez la derniere lumiere", 160, fonts.f16, {255,198,111})
-    love.graphics.push(); love.graphics.translate(W/2, 226); love.graphics.scale(1.2, 1.2)
+    -- La surface logique fait 640x480, affichee en 320x240 sur l AKA :
+    -- les contours importants font donc au moins 2 px logiques (= 1 px physiques).
+    local t = titleAnim
+    local function easeOut(u)
+        u = clamp(u, 0, 1)
+        return 1 - (1-u)*(1-u)*(1-u)
+    end
+    local land = easeOut(t / 2.55)
+    local shipY = -32 + (226 + 32) * land
+    local flameOn = t < 2.48
+    local titleProgress = easeOut((t - 1.85) / 1.12)
+    local titleY = -62 + 168 * titleProgress
+
+    -- En-tete : le titre reste cache en haut puis descend apres l arrivee du vaisseau.
+    color(32,196,207); rect(W/2-118, 31, 236, 2)
+    color(255,190,79); rect(W/2-42, 35, 84, 2)
+    centered("UNE AVENTURE LUNAIRE", 44, fonts.f24, {90,224,227})
+    centered("LUNAR COURIER", titleY, fonts.f48, {235,244,248})
+
+    -- Halo orbital compact, garde derriere le vaisseau pour ne pas brouiller le titre.
+    color(7,20,36)
+    love.graphics.circle("fill", W/2, 235, 57)
+    color(16,48,68)
+    love.graphics.circle("line", W/2, 235, 53)
+    color(29,89,109)
+    love.graphics.circle("line", W/2, 235, 44)
+    color(45,118,132)
+    love.graphics.circle("line", W/2, 235, 34)
+
+    -- Plateforme d arrivee : silhouettes epaisses pour survivre a la reduction 2:1.
+    color(24,47,62); rect(W/2-77, 260, 154, 7)
+    color(48,197,207); rect(W/2-65, 259, 130, 2)
+    color(255,190,79); rect(W/2-17, 257, 34, 3)
+    color(32,78,96); rect(W/2-92, 267, 184, 2)
+    color(50,114,131); rect(W/2-52, 270, 104, 2)
+
+    -- Faisceaux de guidage et balises laterales.
+    color(29,72,91); rect(W/2-125, 242, 38, 3)
+    color(52,151,166); rect(W/2-113, 224, 3, 18)
+    color(255,190,79); rect(W/2-117, 219, 11, 5)
+    color(29,72,91); rect(W/2+87, 242, 38, 3)
+    color(52,151,166); rect(W/2+109, 224, 3, 18)
+    color(58,220,216); rect(W/2+106, 219, 11, 5)
+
+    -- Le moteur s anime pendant la descente, puis s eteint juste avant le contact.
+    love.graphics.push()
+    love.graphics.translate(W/2, shipY)
+    love.graphics.scale(1.85, 1.85)
     local save = {x=ship.x, y=ship.y, angle=ship.angle, thrust=ship.thrust, landed=ship.landed}
-    ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 0, 0, 0, true, false
+    ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 0, 0, 0, flameOn, false
     drawShip()
     ship.x, ship.y, ship.angle, ship.thrust, ship.landed = save.x, save.y, save.angle, save.thrust, save.landed
     love.graphics.pop()
-    local y = 292
-    for i,it in ipairs(menu) do
-        if i == menuSel then centered("> "..it.label.." <", y, fonts.f24, {255,190,83})
-        else centered(it.label, y, fonts.f24, {82,229,218}) end
-        y = y + 34
+
+    -- Petites poussieres au contact : pulse bref, sans surcharge visuelle.
+    if t >= 2.42 and t < 2.92 then
+        local pulse = math.floor(t * 22) % 2
+        color(pulse == 0 and 255 or 120, pulse == 0 and 190 or 220, pulse == 0 and 105 or 220)
+        rect(W/2-39, 263, 9, 2); rect(W/2+30, 263, 9, 2)
+        color(114,157,174)
+        rect(W/2-48, 256, 4, 2); rect(W/2+44, 256, 4, 2)
     end
-    centered("HAUT/BAS + A    B : MUSIQUE "..(Audio.musicOn and "OUI" or "NON"), 448, fonts.f16, {130,157,179})
+
+    -- Sous-titre discret mais lisible sur l ecran physique.
+    if t >= 2.65 then
+        centered("LIVREZ LA DERNIERE LUMIERE", 164, fonts.f24, {255,198,111})
+    end
+
+    -- Menu compact, puis commandes reparties sur plusieurs lignes pour l AKA.
+    color(39,88,110); rect(92, 280, 456, 2)
+    local y = 288
+    for i,it in ipairs(menu) do
+        if i == menuSel then
+            color(255,190,79); rect(170, y+10, 18, 2); rect(452, y+10, 18, 2)
+            centered("> "..it.label.." <", y, fonts.f24, {255,190,83})
+        else centered(it.label, y, fonts.f24, {82,229,218}) end
+        y = y + 26
+    end
+    centered("HAUT / BAS : MENU", 402, fonts.f24, {158,184,202})
+    centered("A : OK    B : SON", 426, fonts.f24, {158,184,202})
+    centered("EN VOL : C PAUSE   D : RECOMMENCER", 452, fonts.f16, {120,151,170})
 end
 
 local function drawInstructions()
@@ -774,8 +890,8 @@ local function drawInstructions()
     centered("COMMANDES", 44, fonts.f32, {235,244,248})
     local amber, white = {255,188,83}, {198,216,227}
     local rows = {
-        {"GAUCHE / DROITE : tourner", white},
-        {"HAUT : propulseur  (PC: Z W Q D)", white},
+        {"GAUCHE / DROITE : tourner (PC : Q/D)", white},
+        {"HAUT : propulseur (PC AZERTY : Z)", white},
         {"A : valider    C : pause", white},
         {"D : recommencer    MENU : titre", white},
         {"B : musique oui / non", white},
@@ -801,12 +917,46 @@ local SPEAKERS = {
 }
 local NARRATION = {179,205,219}
 
+-- Portrait vectoriel de LUNA : autonome, sans fichier image a charger.
+local function drawLunaPortrait(x, y)
+    color(3,14,28); rect(x, y, 60, 60)
+    color(28,100,119); rect(x, y, 60, 2); rect(x, y, 2, 60)
+    color(48,197,207); rect(x+58, y+2, 2, 56); rect(x+2, y+58, 56, 2)
+    -- Epaules et col du module de bord.
+    color(20,45,68)
+    love.graphics.polygon("fill", x+7,y+56, x+12,y+43, x+23,y+38, x+37,y+38, x+48,y+43, x+53,y+56)
+    color(50,121,145)
+    love.graphics.polygon("fill", x+20,y+56, x+23,y+43, x+37,y+43, x+40,y+56)
+    color(255,190,79); rect(x+27,y+43,6,2)
+    -- Chevelure, visage et meches.
+    color(24,38,76); love.graphics.circle("fill", x+30, y+25, 21)
+    color(151,219,225); love.graphics.circle("fill", x+30, y+27, 15)
+    color(34,65,106)
+    love.graphics.polygon("fill", x+10,y+23, x+13,y+9, x+25,y+5, x+43,y+9, x+50,y+22)
+    -- Yeux cyan et expression calme.
+    color(22,62,91); rect(x+20,y+27,5,2); rect(x+35,y+27,5,2)
+    color(48,225,220); rect(x+21,y+27,2,2); rect(x+36,y+27,2,2)
+    color(77,128,151); rect(x+28,y+31,4,2)
+    color(255,190,120); rect(x+27,y+35,6,2)
+    -- Petite signature lumineuse sur la tempe.
+    color(48,225,220); rect(x+42,y+24,3,5)
+end
+
 local function drawCard()
     local c = cardList[cardIdx]
-    panel(42, 40, 556, 400)
-    local f = fit(c[1], 520, {fonts.f24, fonts.f16})
-    centered(c[1], 58, f, {236,245,248})
-    color(43,205,211); rect(W/2-60, 94, 120, 2)
+    -- Bandeau illustre en haut (640x150 virtuels = 320x75 ecran) ; decor de secours si l'image manque.
+    color(3,14,28); rect(0, 0, W, 150)
+    if not Art.draw(cardArt and cardArt[cardIdx], cardT) then
+        drawLunaPortrait(14, 20)
+        color(28,100,119); rect(90, 74, 500, 2)
+    end
+    -- Bandeau de titre sur le bas de l'illustration.
+    color(3,14,28); rect(0, 112, W, 40)
+    color(43,205,211); rect(0, 110, W, 2); rect(0, 152, W, 2)
+    color(255,190,79); rect(0, 110, 40, 2); rect(W-40, 152, 40, 2)
+    local f = fit(c[1], 600, {fonts.f24, fonts.f16})
+    centered(c[1], 118, f, {236,245,248})
+    panel(30, 160, 580, 314)
     local lines = wrap(c[2], 500, 16)
     local cols, cur, newPara = {}, NARRATION, true
     for i,l in ipairs(lines) do
@@ -822,10 +972,10 @@ local function drawCard()
             cols[i] = cur
         end
     end
-    drawLines(lines, 70, 108, 500, fonts.f16, cols, 22)
+    drawLines(lines, 70, 174, 500, fonts.f16, cols, 20)
     local prompt = (cardIdx == #cardList) and cardLast or "A : CONTINUER"
-    centered(prompt, 408, fonts.f16, {255,190,81})
-    centered(cardIdx.."/"..#cardList, 420, fonts.f16, {90,110,130})
+    centered(prompt, 436, fonts.f16, {255,190,81})
+    centered(cardIdx.."/"..#cardList, 454, fonts.f16, {90,110,130})
 end
 
 local function drawOverlays()
@@ -878,9 +1028,10 @@ end
 -- ---------------------------------------------------------------------------
 -- Entrees
 -- ---------------------------------------------------------------------------
-local function showCards(list, done, sky, lastPrompt)
+local function showCards(list, done, sky, lastPrompt, art)
     if #list == 0 then done(); return end
     cardList, cardIdx, cardDone = list, 1, done
+    cardArt, cardT = art, 0
     cardLast = lastPrompt or "A : CONTINUER"
     skyOverride = sky
     state = "card"
@@ -888,11 +1039,12 @@ end
 
 local function beginMission(i)
     local m = Data.missions[i]
-    showCards(m.pre or EMPTY, function() startMission(i) end, m.sky, "A : DECOLLER")
+    showCards(m.pre or EMPTY, function() startMission(i) end, m.sky, "A : DECOLLER", Data.art and Data.art[i] and Data.art[i].pre)
 end
 
 local function backToTitle()
     skyOverride = nil
+    titleAnim = 0
     missionIndex = 1
     resetMission()
     buildMenu()
@@ -903,9 +1055,9 @@ local function afterDebrief()
     local m = mission()
     local nextI = missionIndex + 1
     if nextI > #Data.missions then
-        showCards(m.post or EMPTY, backToTitle, m.sky, "A : TITRE")
+        showCards(m.post or EMPTY, backToTitle, m.sky, "A : TITRE", Data.art and Data.art[missionIndex] and Data.art[missionIndex].post)
     else
-        showCards(m.post or EMPTY, function() beginMission(nextI) end, m.sky, "A : MISSION SUIVANTE")
+        showCards(m.post or EMPTY, function() beginMission(nextI) end, m.sky, "A : MISSION SUIVANTE", Data.art and Data.art[missionIndex] and Data.art[missionIndex].post)
     end
 end
 
@@ -958,7 +1110,7 @@ function Game.keypressed(key)
     elseif state == "card" then
         if confirm(key) then
             Audio.play("card")
-            cardIdx = cardIdx + 1
+            cardIdx = cardIdx + 1; cardT = 0
             if cardIdx > #cardList then
                 local d = cardDone
                 cardList, cardDone = nil, nil

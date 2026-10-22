@@ -5,6 +5,7 @@
 local Data  = require("src.data")
 local Audio = require("src.audio")
 local Save  = require("src.save")
+local Art   = require("src.art")
 local Game = {}
 
 local W, H = 640, 480
@@ -45,6 +46,7 @@ local tg, runs, maxG = {}, {}, 390   -- terrain : hauteur par colonne, segments,
 local pads = {}
 local ridge1, ridge2 = {}, {}
 local cardList, cardIdx, cardDone, cardLast = nil, 1, nil, "A : CONTINUER"
+local cardArt, cardT = nil, 0   -- illustrations des cartes, temps ecoule sur la carte courante
 local menu, menuSel = {}, 1
 local skyOverride = nil
 local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
@@ -320,6 +322,7 @@ function Game.update(dt)
     dt = math.min(dt, 1/30)
     time = time + dt
     if state == "title" then titleAnim = math.min(titleAnim + dt, 4.2) end
+    if state == "card" then cardT = cardT + dt end
     syncMusic()
     if messageTimer > 0 then messageTimer = math.max(0, messageTimer - dt) end
     for k,v in pairs(noteTimers) do noteTimers[k] = v - dt end
@@ -929,7 +932,7 @@ local function drawLunaPortrait(x, y)
     color(24,38,76); love.graphics.circle("fill", x+30, y+25, 21)
     color(151,219,225); love.graphics.circle("fill", x+30, y+27, 15)
     color(34,65,106)
-    love.graphics.polygon("fill", x+10,y+23, x+13,y+9, x+25,y+5, x+43,y+9, x+50,y+22, x+43,y+17, x+36,y+20, x+29,y+14, x+21,y+20, x+14,y+19)
+    love.graphics.polygon("fill", x+10,y+23, x+13,y+9, x+25,y+5, x+43,y+9, x+50,y+22)
     -- Yeux cyan et expression calme.
     color(22,62,91); rect(x+20,y+27,5,2); rect(x+35,y+27,5,2)
     color(48,225,220); rect(x+21,y+27,2,2); rect(x+36,y+27,2,2)
@@ -941,11 +944,19 @@ end
 
 local function drawCard()
     local c = cardList[cardIdx]
-    panel(42, 40, 556, 400)
-    drawLunaPortrait(54, 45)
-    local f = fit(c[1], 440, {fonts.f24, fonts.f16})
-    centered(c[1], 58, f, {236,245,248}, 124, 450)
-    color(43,205,211); rect(W/2-60, 94, 120, 2)
+    -- Bandeau illustre en haut (640x150 virtuels = 320x75 ecran) ; decor de secours si l'image manque.
+    color(3,14,28); rect(0, 0, W, 150)
+    if not Art.draw(cardArt and cardArt[cardIdx], cardT) then
+        drawLunaPortrait(14, 20)
+        color(28,100,119); rect(90, 74, 500, 2)
+    end
+    -- Bandeau de titre sur le bas de l'illustration.
+    color(3,14,28); rect(0, 112, W, 40)
+    color(43,205,211); rect(0, 110, W, 2); rect(0, 152, W, 2)
+    color(255,190,79); rect(0, 110, 40, 2); rect(W-40, 152, 40, 2)
+    local f = fit(c[1], 600, {fonts.f24, fonts.f16})
+    centered(c[1], 118, f, {236,245,248})
+    panel(30, 160, 580, 314)
     local lines = wrap(c[2], 500, 16)
     local cols, cur, newPara = {}, NARRATION, true
     for i,l in ipairs(lines) do
@@ -961,10 +972,10 @@ local function drawCard()
             cols[i] = cur
         end
     end
-    drawLines(lines, 70, 108, 500, fonts.f16, cols, 22)
+    drawLines(lines, 70, 174, 500, fonts.f16, cols, 20)
     local prompt = (cardIdx == #cardList) and cardLast or "A : CONTINUER"
-    centered(prompt, 408, fonts.f16, {255,190,81})
-    centered(cardIdx.."/"..#cardList, 420, fonts.f16, {90,110,130})
+    centered(prompt, 436, fonts.f16, {255,190,81})
+    centered(cardIdx.."/"..#cardList, 454, fonts.f16, {90,110,130})
 end
 
 local function drawOverlays()
@@ -1017,9 +1028,10 @@ end
 -- ---------------------------------------------------------------------------
 -- Entrees
 -- ---------------------------------------------------------------------------
-local function showCards(list, done, sky, lastPrompt)
+local function showCards(list, done, sky, lastPrompt, art)
     if #list == 0 then done(); return end
     cardList, cardIdx, cardDone = list, 1, done
+    cardArt, cardT = art, 0
     cardLast = lastPrompt or "A : CONTINUER"
     skyOverride = sky
     state = "card"
@@ -1027,7 +1039,7 @@ end
 
 local function beginMission(i)
     local m = Data.missions[i]
-    showCards(m.pre or EMPTY, function() startMission(i) end, m.sky, "A : DECOLLER")
+    showCards(m.pre or EMPTY, function() startMission(i) end, m.sky, "A : DECOLLER", Data.art and Data.art[i] and Data.art[i].pre)
 end
 
 local function backToTitle()
@@ -1043,9 +1055,9 @@ local function afterDebrief()
     local m = mission()
     local nextI = missionIndex + 1
     if nextI > #Data.missions then
-        showCards(m.post or EMPTY, backToTitle, m.sky, "A : TITRE")
+        showCards(m.post or EMPTY, backToTitle, m.sky, "A : TITRE", Data.art and Data.art[missionIndex] and Data.art[missionIndex].post)
     else
-        showCards(m.post or EMPTY, function() beginMission(nextI) end, m.sky, "A : MISSION SUIVANTE")
+        showCards(m.post or EMPTY, function() beginMission(nextI) end, m.sky, "A : MISSION SUIVANTE", Data.art and Data.art[missionIndex] and Data.art[missionIndex].post)
     end
 end
 
@@ -1098,7 +1110,7 @@ function Game.keypressed(key)
     elseif state == "card" then
         if confirm(key) then
             Audio.play("card")
-            cardIdx = cardIdx + 1
+            cardIdx = cardIdx + 1; cardT = 0
             if cardIdx > #cardList then
                 local d = cardDone
                 cardList, cardDone = nil, nil

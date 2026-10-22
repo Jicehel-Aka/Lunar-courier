@@ -25,7 +25,7 @@ Ecran titre : Continuer, Nouvelle partie, choix du chapitre (chapitres debloques
 - Ch.1 (M1-6) : la colonie silencieuse et le reseau de balises.
 - Ch.2 (M7-12) : la face cachee, la voix d'Argo, le commandant Varga.
 - Ch.3 (M13-18) : le Mont Helios, les tempetes solaires, les Lucioles, le Centre Lagrange... et la verite sur LUNA.
-56 cartes narratives entre les missions.
+56 cartes narratives entre les missions, chacune illustree (panoramas pixel art dans `game/assets/scenes/`, balayage lent sur les plus larges).
 
 ## Verification automatique (GitHub Actions)
 `tests/run_tests.py` charge le jeu avec un faux `love` strict (memes fonctions que AKA-Love, memes contraintes), joue les 18 missions avec un pilote automatique, dessine tous les ecrans, controle la longueur des textes (pire cas : 1 caractere = taille de police en px), l'absence de polygones concaves, de non-ASCII, et refait le parcours sans audio ni systeme de fichiers.
