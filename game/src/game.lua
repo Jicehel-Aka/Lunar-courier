@@ -864,7 +864,7 @@ local function drawTitle()
 
     -- Sous-titre discret mais lisible sur l ecran physique.
     if t >= 2.65 then
-        centered("LIVREZ LA DERNIERE LUMIERE", 164, fonts.f16, {255,198,111})
+        centered("LIVREZ LA DERNIERE LUMIERE", 164, fonts.f24, {255,198,111})
     end
 
     -- Menu en zone basse, avec separation suffisamment epaisse a l echelle AKA.
@@ -877,7 +877,7 @@ local function drawTitle()
         else centered(it.label, y, fonts.f24, {82,229,218}) end
         y = y + 34
     end
-    centered("HAUT/BAS + A    B : MUSIQUE "..(Audio.musicOn and "OUI" or "NON"), 448, fonts.f16, {158,184,202})
+    centered("HAUT/BAS MENU   A OK   B SON", 448, fonts.f24, {158,184,202})
 end
 
 local function drawInstructions()
