@@ -41,7 +41,9 @@ function A.thrust(on)
 end
 
 function A.setMusic(name)
-    if name == A.musicName and (A.music or not A.musicOn) then return end
+    -- Ne pas recreer une source a chaque frame si l audio n est pas disponible.
+    -- Le nom est invalide seulement apres un changement explicite de musique.
+    if name == A.musicName then return end
     if A.music then
         if A.music.stop then try(A.music.stop, A.music) end
         A.music = nil
