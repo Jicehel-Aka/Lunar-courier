@@ -522,7 +522,7 @@ local function drawRidges()
     for i = 0, 15 do
         local x = i*41 + 7
         local y = ridge2[(i*2)%32] + 10 + (i%3)*7
-        color(i%2==0 and {26,43,62} or {30,45,64})
+        colorT(i%2==0 and {26,43,62} or {30,45,64})
         if y < H-12 then
             love.graphics.polygon("fill",x,y,x+13,y-8,x+27,y,x+20,y+5)
             color(47,64,81); rect(x+8,y-3,8,2)
@@ -572,7 +572,7 @@ local function drawTerrain()
         local gy = groundAt(x)
         local y = gy + 10 + (i*19)%54
         if y < H-3 then
-            color(i%3==0 and {27,39,51} or {39,51,63})
+            colorT(i%3==0 and {27,39,51} or {39,51,63})
             rect(x,y,5+(i%4)*3,2)
             colorT(p.speck); rect(x+2,y+3,2,1)
         end
