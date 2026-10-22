@@ -1,0 +1,3 @@
+*.love
+dist/
+__pycache__/

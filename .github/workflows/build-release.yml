@@ -1,0 +1,128 @@
+name: Verifier et publier
+
+# UN SEUL workflow (meme principe que AKA-Love) :
+#   verif : syntaxe Lua 5.1 + test de bout en bout sans ecran (18 missions, pilote automatique,
+#           faux `love` strict : memes contraintes que le runtime AKA-Love) + test sans audio/sauvegarde
+#   aka   : paquet carte SD  -> AKA_Love/games/lunar_courier/
+#   pc    : jeu.love + paquet Windows autonome (love.exe 11.5 + jeu fusionnes)
+#   release : si tout est vert, publie une Release en incrementant la version MINEURE (v1.4.2 -> v1.5.0)
+# Pull request : verifications et paquets, sans release. Declenchement manuel : compile et publie.
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore: ['**.md', 'LICENSE', '.gitignore']
+  pull_request:
+    paths-ignore: ['**.md', 'LICENSE', '.gitignore']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verif:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install outils
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1 luajit
+          python3 -m pip install lupa numpy
+
+      - name: Syntaxe Lua 5.1
+        run: |
+          for f in $(find game -name '*.lua'); do luajit -bl "$f" > /dev/null || { echo "::error file=$f::erreur de syntaxe"; exit 1; }; done
+          # Portabilite : noms de fichiers en minuscules, texte ASCII uniquement
+          bad=$(find game -type f | grep '[A-Z]' || true); [ -z "$bad" ] || { echo "::error::majuscules dans les noms: $bad"; exit 1; }
+          ! grep -nP '[^\x00-\x7F]' $(find game -name '*.lua') || { echo "::error::caracteres non ASCII dans les .lua"; exit 1; }
+          # Appels interdits sur AKA-Love
+          ! grep -n 'love.graphics.clear' $(find game -name '*.lua') || { echo "::error::love.graphics.clear non supporte sur AKA"; exit 1; }
+
+      - name: Test complet (audio + sauvegarde)
+        run: python3 -I tests/run_tests.py game full
+
+      - name: Test sans audio ni sauvegarde
+        run: python3 -I tests/run_tests.py game noaudio
+
+      - name: Les sons correspondent au generateur
+        run: |
+          cp -r game /tmp/regen && python3 /tmp/regen/tools/make_audio.py
+          for f in game/sfx/*.wav game/mus/*.wav; do test -s "$f"; done
+
+  aka:
+    needs: verif
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Paquet carte SD
+        run: |
+          mkdir -p out/AKA_Love/games
+          cp -r game out/AKA_Love/games/lunar_courier
+          rm -rf out/AKA_Love/games/lunar_courier/tools
+          (cd out && zip -r ../lunar-courier-aka-sdcard.zip AKA_Love)
+          unzip -l lunar-courier-aka-sdcard.zip | tail -3
+      - uses: actions/upload-artifact@v4
+        with: { name: aka, path: lunar-courier-aka-sdcard.zip, if-no-files-found: error, retention-days: 7 }
+
+  pc:
+    needs: verif
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive .love (Linux/macOS/Windows avec LOVE 11.x installe)
+        run: |
+          (cd game && zip -9 -r ../lunar-courier.love . -x 'tools/*')
+          unzip -l lunar-courier.love | tail -1
+          unzip -p lunar-courier.love main.lua | head -1
+      - name: Paquet Windows autonome (love.exe + jeu)
+        run: |
+          curl -fsSL -o love-win.zip https://github.com/love2d/love/releases/download/11.5/love-11.5-win64.zip
+          unzip -q love-win.zip
+          d=love-11.5-win64
+          cat $d/love.exe lunar-courier.love > $d/lunar-courier.exe
+          rm $d/love.exe $d/lovec.exe $d/game.ico $d/love.ico 2>/dev/null || true
+          mv $d lunar-courier-windows
+          cp README.md lunar-courier-windows/LISEZMOI.md
+          zip -r lunar-courier-pc-windows-x64.zip lunar-courier-windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc
+          path: |
+            lunar-courier.love
+            lunar-courier-pc-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    if: github.event_name != 'pull_request'
+    needs: [aka, pc]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts, merge-multiple: true }
+      - name: Version mineure suivante
+        id: version
+        run: |
+          last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          last=${last:-v0.8.0}
+          IFS=. read -r major minor _ <<< "${last#v}"
+          echo "tag=v${major}.$((minor + 1)).0" >> "$GITHUB_OUTPUT"
+      - name: Publier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          cd artifacts
+          for f in lunar-courier*.zip lunar-courier.love; do
+            b="${f%.*}"; e="${f##*.}"; mv "$f" "$b-$TAG.$e"
+          done
+          ls -l
+          gh release create "$TAG" lunar-courier* --target "$GITHUB_SHA" --title "Lunar Courier $TAG" --generate-notes
