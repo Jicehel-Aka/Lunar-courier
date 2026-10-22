@@ -53,6 +53,7 @@ local cardArt, cardT = nil, 0   -- illustrations des cartes, temps ecoule sur la
 local menu, menuSel = {}, 1
 local skyOverride = nil
 local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
+local explore = {x=100, y=0, fixedY=0, repaired=false, t=0, phase=1}
 local sysOpen, sysPage, sysSel = false, "main", 1   -- menu systeme (MENU court)
 local escDown = nil                                  -- instant d'appui sur MENU (appui long = capture)
 local toast, toastT, shotPending = "", 0, 0
@@ -237,6 +238,8 @@ local function resetMission()
     message, messageTimer = "", 0
     thrustTimer = 0
     Audio.thrust(false)
+    explore.x, explore.y, explore.t, explore.phase = 100, 0, 0, 1
+    explore.repaired = false
 end
 
 local function startMission(i)
@@ -389,6 +392,14 @@ function Game.update(dt)
         p.vx = p.vx*0.98; p.vy = p.vy + 16*dt
         p.life = p.life - dt
         if p.life <= 0 then table.remove(particles, i) end
+    end
+    if state == "explore" then
+        explore.t = explore.t + dt
+        local keys = I.moveKeys()
+        if anyDown(keys.left) then explore.x = math.max(42, explore.x - 115*dt) end
+        if anyDown(keys.right) then explore.x = math.min(598, explore.x + 115*dt) end
+        Audio.thrust(false)
+        return
     end
     if state ~= "game" or paused or ship.landed or failed then Audio.thrust(false); return end
 
@@ -1361,6 +1372,27 @@ function Game.draw()
         drawSky(); drawRidges(); drawTerrain(); drawCard()
     elseif state == "title" then
         drawSky(); drawRidges(); drawTerrain(); drawTitle()
+    elseif state == "explore" then
+        color(7,17,34); rect(0,0,W,H)
+        color(13,35,54); rect(0,110,W,250)
+        color(27,61,76); rect(0,360,W,120)
+        color(74,111,123); rect(0,356,W,5)
+        color(20,48,67); rect(28,145,584,210)
+        color(43,81,96); rect(36,153,568,194)
+        color(9,22,39); rect(54,170,130,170); rect(456,170,130,170)
+        color(82,229,218); rect(270,198,100,4); rect(270,198,4,92); rect(366,198,4,92); rect(270,286,100,4)
+        color(255,190,83); rect(303,222,34,40); rect(309,214,22,8)
+        color(13,35,54); rect(310,230,20,20)
+        color(4,10,22); rect(explore.x-9,322,18,34)
+        color(82,229,218); rect(explore.x-8,300,16,20); rect(explore.x-11,305,22,9)
+        color(255,190,83); rect(explore.x-5,306,10,5)
+        color(82,229,218); rect(explore.x-8,350,5,12); rect(explore.x+3,350,5,12)
+        panel(50,34,540,74)
+        centered(explore.repaired and "SYSTEME RETABLI" or "STATION ABANDONNEE", 43, fonts.f24, {82,229,218})
+        centered(explore.repaired and "La console confirme le redemarrage de la balise." or "Approchez du terminal orange puis appuyez sur A / ESPACE.", 78, fonts.f16, {225,237,242})
+        centered("GAUCHE / DROITE : SE DEPLACER", 400, fonts.f16, {180,207,219})
+        centered(explore.repaired and "A / ESPACE : RETOUR AU TITRE" or "A / ESPACE : REPARER LE TERMINAL", 428, fonts.f16, {255,190,83})
+        centered("E : LANCER CE PROTOTYPE DEPUIS LE TITRE", 452, fonts.f16, {120,151,170})
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
@@ -1503,6 +1535,10 @@ function Game.keypressed(key, scancode, isrepeat)
             menuSel = menuSel - 1; if menuSel < 1 then menuSel = #menu end; Audio.play("menu")
         elseif key == "down" then
             menuSel = menuSel + 1; if menuSel > #menu then menuSel = 1 end; Audio.play("menu")
+        elseif key == "e" and not isrepeat then
+            explore.x, explore.t, explore.repaired = 100, 0, false
+            state = "explore"
+            Audio.play("menu")
         elseif key == "u" then
             Save.unlockAll = true; buildMenu()
         elseif confirm(key) then
@@ -1533,6 +1569,16 @@ function Game.keypressed(key, scancode, isrepeat)
             if Save.next > Save.best then Save.best = Save.next end
             Save.save()
             state = "debrief"
+        end
+    elseif state == "explore" then
+        if confirm(key) then
+            if not explore.repaired and explore.x >= 245 and explore.x <= 395 then
+                explore.repaired = true
+                Audio.play("menu")
+            elseif explore.repaired then
+                state = "title"
+                buildMenu()
+            end
         end
     elseif state == "debrief" then
         if confirm(key) then afterDebrief() end
