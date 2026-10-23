@@ -1456,7 +1456,7 @@ function Game.draw()
         color(8,25,39); rect(504,207,40,14)
         color(111,242,226); rect(508,211,7,3); rect(519,211,14,3); rect(508,216,27,2)
         color(255,169,60); rect(504,235,40,3)
-        -- lumiere d'urgence en pulsation discrète
+        -- lumiere d'urgence en pulsation discrete
         local pulse=math.floor((math.sin(explore.t*3)+1)*2)
         color(255,75,58); rect(38,101,18,5+pulse); rect(584,101,18,5+pulse)
         color(80,222,212); rect(282,101,18,3); rect(306,101,18,3)
