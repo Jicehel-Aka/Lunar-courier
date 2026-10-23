@@ -1576,7 +1576,12 @@ function Game.draw()
         if interacting then
             local handX=px+facing*(10+armReach*13)
             local handY=baseY+4-armReach*10
-            love.graphics.polygon("fill",px+facing*7,414+py-bob,px+facing*12,416+py-bob,handX,handY+3,handX-facing*4,handY+5)
+            -- bras tendu : suite de petits carres de l'epaule au gant (un quadrilatere se croisait, donc concave)
+            local sx, sy = px+facing*8, 415+py-bob
+            for k = 0, 4 do
+                local t = k/4
+                rect(math.floor(sx+(handX-sx)*t)-2, math.floor(sy+(handY+3-sy)*t)-2, 5, 5)
+            end
             color(183,199,208); rect(handX-facing*2,handY,5,5)
             -- Petit flash sur le gant pendant la manipulation.
             if math.floor(explore.t*12)%2==0 then color(255,190,79); rect(handX+facing*3,handY+1,3,3) end
