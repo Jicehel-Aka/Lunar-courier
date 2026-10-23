@@ -1388,11 +1388,11 @@ function Game.draw()
         color(255,190,83); rect(explore.x-5,306,10,5)
         color(82,229,218); rect(explore.x-8,350,5,12); rect(explore.x+3,350,5,12)
         panel(50,34,540,74)
-        centered(explore.repaired and "SYSTEME RETABLI" or "STATION ABANDONNEE", 43, fonts.f24, {82,229,218})
-        centered(explore.repaired and "La console confirme le redemarrage de la balise." or "Approchez du terminal orange puis appuyez sur A / ESPACE.", 78, fonts.f16, {225,237,242})
-        centered("GAUCHE / DROITE : SE DEPLACER", 400, fonts.f16, {180,207,219})
-        centered(explore.repaired and "A / ESPACE : RETOUR AU TITRE" or "A / ESPACE : REPARER LE TERMINAL", 428, fonts.f16, {255,190,83})
-        centered("E : LANCER CE PROTOTYPE DEPUIS LE TITRE", 452, fonts.f16, {120,151,170})
+        centered(explore.repaired and I.t("explore_restored") or I.t("explore_abandoned"), 43, fonts.f24, {82,229,218})
+        centered(explore.repaired and I.t("explore_confirmed") or I.t("explore_prompt"), 78, fonts.f16, {225,237,242})
+        centered(I.t("explore_move"), 400, fonts.f16, {180,207,219})
+        centered(explore.repaired and I.t("explore_back") or I.t("explore_repair"), 428, fonts.f16, {255,190,83})
+        if not I.aka then centered(I.t("explore_pc_hint"), 452, fonts.f16, {120,151,170}) end
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
