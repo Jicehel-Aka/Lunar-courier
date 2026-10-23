@@ -286,8 +286,8 @@ for mi in range(1, nm+1):
         hold('right', True); step(12); hold('right', False)
         key('a'); step(1)
         d = dbg()
-        if d['state'] != 'card' or d['mi'] != 4:
-            print("station interlude did not launch M04:", d['state'], d['mi'])
+        if d['state'] != 'card' or d['cardIdx'] != 1:
+            print("station interlude did not launch M04:", d['state'], d['mi'], d['cardIdx'])
             FAILED.append("station interlude")
     # entering next mission: pre cards counted inside 'seen'
     print(f"M{mi:02d}: attempts={results[mi][0]} fuel={results[mi][1]} hull={results[mi][2]} t={results[mi][3]}s | debrief={st_deb} cards_shown={seen} -> state={d['state']} mi={d['mi']}")
