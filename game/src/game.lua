@@ -1373,7 +1373,7 @@ local function takeShot()
 end
 
 local function drawToast()
-    if toastT <= 0 or toast == "" then return end
+    if toastT <= 0 or toast == "" or state == "explore" then return end   -- en station, les messages vont sur la console de LUNA
     local w = math.min(560, #toast * 16 + 40)
     panel(W/2 - w/2, 74, w, 36)
     centered(toast, 83, fonts.f16, {236,245,248})
@@ -1601,10 +1601,40 @@ function Game.draw()
         color(79,221,213); rect(36,34,4,34)
         centered("SECTEUR 03 / STATION", 34, fonts.f24, {135,239,231})
         centered(explore.repaired and "RESEAU RESTAURE - JOURNAL DEBLOQUE" or ("CIRCUITS AUXILIAIRES  "..tostring(explore.repairs or 0).."/3"), 65, fonts.f16, {214,225,230})
-        panel(24,364,190,42)
-        centered("LUNA  //  SIGNAL INSTABLE", 374, fonts.f12, {255,177,78})
-        centered((explore.repairs or 0)>=3 and "Acces au terminal retabli" or "Reparer les 3 relais", 390, fonts.f12, {206,222,230})
-        centered(explore.repaired and "ESPACE : CONSULTER LE JOURNAL" or "E : INTERAGIR  |  ESPACE : SAUTER", 430, fonts.f12, {255,190,98})
+        -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
+        local cx, cy, cw, ch = 24, 96, 424, 150
+        panel(cx, cy, cw, ch)
+        color(43,205,211); rect(cx+10, cy+27, cw-20, 1)
+        love.graphics.setFont(fonts.f12.obj)
+        color(255,177,78)
+        love.graphics.printf("LUNA  //  SIGNAL INSTABLE", cx+14, cy+7, cw-28, "left")
+        local msg
+        if toastT > 0 and toast ~= "" then msg = toast
+        elseif (explore.repairs or 0) >= 3 then msg = "Terminal accessible : rejoignez la porte blindee a droite."
+        else msg = "Reparer les 3 relais, de gauche a droite." end
+        if msg ~= explore.msg or explore.t < (explore.msgT0 or 0) then explore.msg, explore.msgT0 = msg, explore.t end
+        local n = math.floor((explore.t - (explore.msgT0 or 0)) * 48)
+        -- retour a la ligne manuel (24 caracteres de 16 px) : le texte ne bouge pas pendant qu'il s'ecrit
+        local lines, cur = {}, ""
+        for word in msg:gmatch("%S+") do
+            if #cur > 0 and #cur + 1 + #word > 24 then lines[#lines+1] = cur; cur = word
+            else cur = (#cur > 0) and (cur.." "..word) or word end
+        end
+        if #cur > 0 then lines[#lines+1] = cur end
+        love.graphics.setFont(fonts.f16.obj)
+        color(206,222,230)
+        local left = n
+        for i, l in ipairs(lines) do
+            if left <= 0 then break end
+            love.graphics.printf(l:sub(1, left), cx+14, cy+34+(i-1)*21, cw-28, "left")
+            left = left - #l - 1
+        end
+        love.graphics.setFont(fonts.f12.obj)
+        if n < #msg and math.floor(explore.t * 6) % 2 == 0 then
+            color(135,239,231); rect(cx+cw-22, cy+ch-34, 8, 3)
+        end
+        color(255,190,98)
+        love.graphics.printf(explore.repaired and "ESPACE : CONSULTER LE JOURNAL" or "E : INTERAGIR  |  ESPACE : SAUTER", cx+14, cy+ch-24, cw-28, "left")
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f12, {145,170,184}) end
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
