@@ -1605,7 +1605,8 @@ function Game.draw()
         panel(22,20,596,64)
         color(79,221,213); rect(36,34,4,34)
         centered("SECTEUR 03 / STATION", 34, fonts.f24, {135,239,231})
-        centered(explore.repaired and "RESEAU RESTAURE - JOURNAL DEBLOQUE" or ("CIRCUITS AUXILIAIRES  "..tostring(explore.repairs or 0).."/3"), 65, fonts.f16, {214,225,230})
+        local objective = explore.logRead and "JOURNAL COPIE - ACCES AU SAS" or (explore.repaired and "SIGNAL INCONNU - CONSULTER LE JOURNAL" or ("CIRCUITS AUXILIAIRES  "..tostring(explore.repairs or 0).."/3"))
+        centered(objective, 65, fonts.f16, {214,225,230})
         -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
         local cx, cy, cw, ch = 24, 96, 424, 150
         panel(cx, cy, cw, ch)
@@ -1615,7 +1616,10 @@ function Game.draw()
         love.graphics.printf("LUNA  //  SIGNAL INSTABLE", cx+14, cy+7, cw-28, "left")
         local msg
         if toastT > 0 and toast ~= "" then msg = toast
-        elseif (explore.repairs or 0) >= 3 then msg = "Terminal accessible : rejoignez la porte blindee a droite."
+        elseif explore.logRead then msg = "Journal copie. Luna detecte une impulsion hors reseau."
+        elseif explore.repaired then msg = "Signal inconnu detecte. Consultez le terminal a droite."
+        elseif (explore.repairs or 0) == 2 then msg = "Deux relais actifs. Le signal ne vient pas de la station..."
+        elseif (explore.repairs or 0) == 1 then msg = "Relais 1 stable. Etrange : un circuit etait deja alimente."
         else msg = "Reparer les 3 relais, de gauche a droite." end
         if msg ~= explore.msg or explore.t < (explore.msgT0 or 0) then explore.msg, explore.msgT0 = msg, explore.t end
         local n = math.floor((explore.t - (explore.msgT0 or 0)) * 48)
@@ -1639,7 +1643,8 @@ function Game.draw()
             color(135,239,231); rect(cx+cw-22, cy+ch-34, 8, 3)
         end
         color(255,190,98)
-        love.graphics.printf(explore.repaired and "ESPACE : CONSULTER LE JOURNAL" or "E : INTERAGIR  |  ESPACE : SAUTER", cx+14, cy+ch-24, cw-28, "left")
+        local hint = explore.logRead and "E : REJOINDRE LE SAS" or (explore.repaired and "E : LIRE LE JOURNAL  |  ESPACE : SAUTER" or "E : INTERAGIR  |  ESPACE : SAUTER")
+        love.graphics.printf(hint, cx+14, cy+ch-24, cw-28, "left")
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f12, {145,170,184}) end
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
@@ -1846,24 +1851,41 @@ function Game.keypressed(key, scancode, isrepeat)
                 if relay==(explore.repairs or 0)+1 then
                     explore.repairs=relay
                     Audio.play("menu")
-                    if explore.repairs>=3 then explore.repaired=true end
+                    if relay==1 then
+                        toast="LUNA : Un circuit auxiliaire etait deja actif. Je n'en trouve pas l'origine."
+                        toastT=4
+                    elseif relay==2 then
+                        toast="LUNA : J'ai capte une impulsion. Elle a disparu avant l'analyse."
+                        toastT=4
+                    end
+                    if explore.repairs>=3 then
+                        explore.repaired=true
+                        explore.phase="signal"
+                        toast="LUNA : Reseau restaure. Attendez... ce signal ne figure dans aucune carte."
+                        toastT=5
+                    end
                 else
                     toast="LUNA : Suivez l'ordre des relais, de gauche a droite."
                     toastT=2
                 end
-            elseif explore.repaired and x>=455 then
+            elseif explore.repaired and not explore.logRead and x>=455 and x<=535 then
                 explore.logRead=true
+                explore.phase="exit"
+                Audio.play("menu")
+                toast="JOURNAL VARGA : signal recu 00:00:03 avant emission. Impossible."
+                toastT=6
+            elseif explore.logRead and x>=535 then
                 if explore.campaign then
                     explore.campaign = false
                     beginMission(4)
                 else
                     state="title"
                     buildMenu()
-                    toast="Journal de Varga recupere : elle est restee pour maintenir les balises."
+                    toast="Journal copie. Luna : cette horodatage est impossible... continuons."
                     toastT=5
                 end
             else
-                toast="LUNA : Relais hors service. Approchez-vous d'un panneau lumineux."
+                toast="LUNA : Approchez-vous du panneau lumineux indique."
                 toastT=2.5
             end
         elseif key == "escape" then
