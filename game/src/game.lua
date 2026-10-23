@@ -53,7 +53,7 @@ local cardArt, cardT = nil, 0   -- illustrations des cartes, temps ecoule sur la
 local menu, menuSel = {}, 1
 local skyOverride = nil
 local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
-local explore = {x=100, y=0, vy=0, repaired=false, repairs=0, logRead=false, t=0, phase=1}
+local explore = {x=100, y=0, vy=0, repaired=false, repairs=0, logRead=false, campaign=false, t=0, phase=1}
 local sysOpen, sysPage, sysSel = false, "main", 1   -- menu systeme (MENU court)
 local escDown = nil                                  -- instant d'appui sur MENU (appui long = capture)
 local toast, toastT, shotPending = "", 0, 0
@@ -1440,7 +1440,8 @@ function Game.draw()
             color(56,80,96); rect(px,300,54,4); rect(px,300,3,84); rect(px+51,300,3,84)
             color(20,39,54); rect(px+7,311,40,60)
             color(9,21,34); rect(px+11,316,32,28)
-            color(explore.repaired or (explore.repairs or 0)>=i and 75 or 30, explore.repaired or (explore.repairs or 0)>=i and 220 or 67, explore.repaired or (explore.repairs or 0)>=i and 184 or 82); rect(px+15,320,24,4)
+            local active = explore.repaired or (explore.repairs or 0)>=i
+            color(active and 75 or 30, active and 220 or 67, active and 184 or 82); rect(px+15,320,24,4)
             color(100,123,133); rect(px+15,331,24,2); rect(px+15,338,15,2)
             color(255,164,57); rect(px+12,355,6,4)
         end
@@ -1542,7 +1543,15 @@ local function afterDebrief()
     if nextI > #Data.missions then
         showCards(missionIndex, "post", backToTitle, m.sky, "card_title")
     else
-        showCards(missionIndex, "post", function() beginMission(nextI) end, m.sky, "card_nextm")
+        showCards(missionIndex, "post", function()
+            if missionIndex == 3 then
+                explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
+                explore.repaired, explore.repairs, explore.logRead, explore.campaign = false, 0, false, true
+                state = "explore"
+            else
+                beginMission(nextI)
+            end
+        end, m.sky, "card_nextm")
     end
 end
 
@@ -1628,7 +1637,7 @@ function Game.keypressed(key, scancode, isrepeat)
         elseif key == "down" then
             menuSel = menuSel + 1; if menuSel > #menu then menuSel = 1 end; Audio.play("menu")
         elseif key == "e" and not isrepeat then
-            explore.x, explore.y, explore.vy, explore.t, explore.repaired, explore.repairs, explore.logRead = 100, 0, 0, 0, false, 0, false
+            explore.x, explore.y, explore.vy, explore.t, explore.repaired, explore.repairs, explore.logRead, explore.campaign = 100, 0, 0, 0, false, 0, false, false
             state = "explore"
             Audio.play("menu")
         elseif key == "u" then
@@ -1675,10 +1684,15 @@ function Game.keypressed(key, scancode, isrepeat)
                 if explore.repairs>=3 then explore.repaired=true end
             elseif explore.repaired and x>=455 then
                 explore.logRead=true
-                state="title"
-                buildMenu()
-                toast="Journal de Varga recupere : elle est restee pour maintenir les balises."
-                toastT=5
+                if explore.campaign then
+                    explore.campaign = false
+                    beginMission(4)
+                else
+                    state="title"
+                    buildMenu()
+                    toast="Journal de Varga recupere : elle est restee pour maintenir les balises."
+                    toastT=5
+                end
             else
                 toast="LUNA : Relais hors service. Approchez-vous d'un panneau lumineux."
                 toastT=2.5
