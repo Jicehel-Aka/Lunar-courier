@@ -53,7 +53,7 @@ jobs:
               long_end = None
               while i < len(src):
                   if long_end:
-                      j = src.find(long_end, i)
+                          j = src.find(chr(10), i)
                       if j < 0:
                           out.append(' ' * (len(src) - i))
                           break
@@ -64,7 +64,7 @@ jobs:
                   ch = src[i]
                   if quote:
                       out.append(ch)
-                      if ch == '\\\\' and i + 1 < len(src):
+                      if ch == chr(92) and i + 1 < len(src):
                           out.append(src[i + 1])
                           i += 2
                           continue
@@ -78,13 +78,13 @@ jobs:
                       i += 1
                       continue
                   if src.startswith('--', i):
-                      m = re.match(r'--\\[(=*)\\[', src[i:])
+                      m = re.match(r'--\[(=*)\[', src[i:])
                       if m:
                           long_end = ']' + m.group(1) + ']'
                           out.append(' ' * len(m.group(0)))
                           i += len(m.group(0))
                       else:
-                          j = src.find('\\n', i)
+                          j = src.find(chr(10), i)
                           if j < 0:
                               out.append(' ' * (len(src) - i))
                               break
