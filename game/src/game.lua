@@ -53,7 +53,7 @@ local cardArt, cardT = nil, 0   -- illustrations des cartes, temps ecoule sur la
 local menu, menuSel = {}, 1
 local skyOverride = nil
 local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
-local explore = {x=100, y=0, fixedY=0, repaired=false, t=0, phase=1}
+local explore = {x=100, y=0, vy=0, repaired=false, repairs=0, logRead=false, t=0, phase=1}
 local sysOpen, sysPage, sysSel = false, "main", 1   -- menu systeme (MENU court)
 local escDown = nil                                  -- instant d'appui sur MENU (appui long = capture)
 local toast, toastT, shotPending = "", 0, 0
@@ -396,8 +396,16 @@ function Game.update(dt)
     if state == "explore" then
         explore.t = explore.t + dt
         local keys = I.moveKeys()
-        if anyDown(keys.left) then explore.x = math.max(42, explore.x - 115*dt) end
-        if anyDown(keys.right) then explore.x = math.min(598, explore.x + 115*dt) end
+        if anyDown(keys.left) then explore.x = math.max(42, explore.x - 145*dt) end
+        if anyDown(keys.right) then explore.x = math.min(598, explore.x + 145*dt) end
+        if explore.jumpT and explore.jumpT > 0 then
+            explore.jumpT = math.max(0, explore.jumpT-dt)
+        end
+        if explore.y < 0 or (explore.vy or 0) ~= 0 then
+            explore.vy = (explore.vy or 0) + 470*dt
+            explore.y = explore.y + explore.vy*dt
+            if explore.y >= 0 then explore.y=0; explore.vy=0; explore.grounded=true end
+        end
         Audio.thrust(false)
         return
     end
@@ -1373,26 +1381,110 @@ function Game.draw()
     elseif state == "title" then
         drawSky(); drawRidges(); drawTerrain(); drawTitle()
     elseif state == "explore" then
-        color(7,17,34); rect(0,0,W,H)
-        color(13,35,54); rect(0,110,W,250)
-        color(27,61,76); rect(0,360,W,120)
-        color(74,111,123); rect(0,356,W,5)
-        color(20,48,67); rect(28,145,584,210)
-        color(43,81,96); rect(36,153,568,194)
-        color(9,22,39); rect(54,170,130,170); rect(456,170,130,170)
-        color(82,229,218); rect(270,198,100,4); rect(270,198,4,92); rect(366,198,4,92); rect(270,286,100,4)
-        color(255,190,83); rect(303,222,34,40); rect(309,214,22,8)
-        color(13,35,54); rect(310,230,20,20)
-        color(4,10,22); rect(explore.x-9,322,18,34)
-        color(82,229,218); rect(explore.x-8,300,16,20); rect(explore.x-11,305,22,9)
-        color(255,190,83); rect(explore.x-5,306,10,5)
-        color(82,229,218); rect(explore.x-8,350,5,12); rect(explore.x+3,350,5,12)
-        panel(50,34,540,74)
-        centered(explore.repaired and I.t("explore_restored") or I.t("explore_abandoned"), 43, fonts.f24, {82,229,218})
-        centered(explore.repaired and I.t("explore_confirmed") or I.t("explore_prompt"), 78, fonts.f16, {225,237,242})
-        centered(I.t("explore_move"), 400, fonts.f16, {180,207,219})
-        centered(explore.repaired and I.t("explore_back") or I.t("explore_repair"), 428, fonts.f16, {255,190,83})
-        if not I.aka then centered(I.t("explore_pc_hint"), 452, fonts.f16, {120,151,170}) end
+        -- Station fantome : environnement industriel detaille, dessine en primitives AKA-Love.
+        color(3,8,19); rect(0,0,W,H)
+        -- baie vitree et horizon lunaire
+        color(8,20,37); rect(18,116,604,156)
+        color(18,39,58); rect(26,124,588,140)
+        color(4,12,28); rect(36,134,568,118)
+        color(20,38,59); rect(44,142,552,102)
+        color(120,179,202); rect(44,142,552,2)
+        color(39,79,101); rect(44,242,552,2)
+        color(205,220,226); rect(72,151,2,84); rect(206,151,2,84); rect(340,151,2,84); rect(474,151,2,84)
+        -- surface lunaire, Terre lointaine et reliefs
+        color(30,52,70); rect(46,211,548,30)
+        color(70,91,105); rect(46,225,548,2)
+        color(13,39,68); rect(456,157,54,34)
+        color(50,118,157); rect(463,163,40,22)
+        color(170,215,229); rect(472,167,8,3); rect(484,174,10,4)
+        color(28,54,72); rect(46,231,548,10)
+        -- murs structurels et nervures
+        color(18,32,48); rect(0,0,640,118); rect(0,272,640,208)
+        color(32,52,69); rect(0,92,640,26); rect(0,268,640,12)
+        color(65,88,104); rect(0,94,640,3); rect(0,274,640,3)
+        for i=0,10 do
+            local x=i*64
+            color(25,43,59); rect(x,0,4,116); rect(x+5,8,2,83)
+            color(57,78,91); rect(x+8,18,20,3); rect(x+8,18,3,15)
+            color(12,24,38); rect(x+4,279,56,128)
+            color(29,47,62); rect(x+8,283,48,118)
+            color(53,74,88); rect(x+8,283,48,3)
+            color(17,31,46); rect(x+13,294,38,96)
+            color(38,57,71); rect(x+16,299,32,3)
+            color(17,33,48); rect(x+6,414,52,28)
+            color(49,72,87); rect(x+6,414,52,3)
+        end
+        -- plancher technique, rails, marquages de securite
+        color(12,22,34); rect(0,280,640,200)
+        color(50,70,84); rect(0,280,640,5)
+        color(22,39,53); rect(0,285,640,195)
+        for i=0,15 do
+            local x=i*44
+            color(39,57,70); rect(x,300,2,150)
+            color(31,49,63); rect(x+3,300,35,3); rect(x+3,446,35,3)
+        end
+        color(95,110,115); rect(0,451,640,4)
+        color(240,157,54); rect(20,456,44,4); rect(76,456,44,4); rect(132,456,44,4)
+        color(24,40,54); rect(0,462,640,18)
+        -- cables rompus et obstacle de maintenance
+        color(3,9,17); rect(182,431,82,5); rect(190,436,5,12); rect(220,436,4,11); rect(247,435,5,13)
+        color(232,143,45); rect(185,429,24,2); rect(226,429,32,2)
+        color(10,20,31); rect(292,419,54,31)
+        color(55,73,85); rect(292,419,54,4); rect(300,426,38,3)
+        color(13,30,44); rect(294,432,50,16)
+        color(255,172,61); rect(306,434,8,3); rect(318,434,8,3)
+        -- panneaux de maintenance a reparer
+        for i=1,3 do
+            local px=230+(i-1)*90
+            color(7,15,26); rect(px,300,54,84)
+            color(56,80,96); rect(px,300,54,4); rect(px,300,3,84); rect(px+51,300,3,84)
+            color(20,39,54); rect(px+7,311,40,60)
+            color(9,21,34); rect(px+11,316,32,28)
+            color(explore.repaired or (explore.repairs or 0)>=i and 75 or 30, explore.repaired or (explore.repairs or 0)>=i and 220 or 67, explore.repaired or (explore.repairs or 0)>=i and 184 or 82); rect(px+15,320,24,4)
+            color(100,123,133); rect(px+15,331,24,2); rect(px+15,338,15,2)
+            color(255,164,57); rect(px+12,355,6,4)
+        end
+        -- porte blindee et terminal central
+        color(7,16,27); rect(465,165,118,116)
+        color(50,75,91); rect(465,165,118,4); rect(465,165,4,116); rect(579,165,4,116)
+        color(18,38,55); rect(474,174,100,98)
+        color(32,58,75); rect(482,182,84,82)
+        color(11,24,39); rect(490,190,68,70)
+        color(255,161,55); rect(492,193,64,3)
+        color(71,208,206); rect(500,203,48,22)
+        color(8,25,39); rect(504,207,40,14)
+        color(111,242,226); rect(508,211,7,3); rect(519,211,14,3); rect(508,216,27,2)
+        color(255,169,60); rect(504,235,40,3)
+        -- lumiere d'urgence en pulsation discrète
+        local pulse=math.floor((math.sin(explore.t*3)+1)*2)
+        color(255,75,58); rect(38,101,18,5+pulse); rect(584,101,18,5+pulse)
+        color(80,222,212); rect(282,101,18,3); rect(306,101,18,3)
+        -- astronaute : combinaison, casque, visiere, sac, bottes et ombres
+        local px=math.floor(explore.x); local py=math.floor(explore.y or 0)
+        color(2,7,14); rect(px-13,410+py,27,43)
+        color(33,54,73); rect(px-11,407+py,22,35)
+        color(116,145,164); rect(px-10,409+py,20,4)
+        color(65,91,112); rect(px-15,416+py,6,21); rect(px+9,416+py,6,21)
+        color(21,37,54); rect(px-10,437+py,8,13); rect(px+3,437+py,8,13)
+        color(183,199,208); rect(px-11,450+py,10,4); rect(px+2,450+py,10,4)
+        color(226,232,226); rect(px-9,390+py,18,20)
+        color(121,151,167); rect(px-12,392+py,24,15)
+        color(207,218,220); rect(px-10,387+py,20,18)
+        color(15,43,61); rect(px-7,391+py,14,10)
+        color(67,185,207); rect(px-6,393+py,12,6)
+        color(246,165,66); rect(px-12,402+py,24,4)
+        color(52,76,94); rect(px-15,410+py,5,13); rect(px+10,410+py,5,13)
+        color(95,222,212); rect(px-8,420+py,16,3)
+        -- HUD diegetique
+        panel(22,20,596,64)
+        color(79,221,213); rect(36,34,4,34)
+        centered("SECTEUR 03  /  STATION FANTOME", 34, fonts.f24, {135,239,231})
+        centered(explore.repaired and "RESEAU RESTAURE  -  JOURNAL DE BORD DEVERROUILLE" or ("CIRCUITS AUXILIAIRES  "..tostring(explore.repairs or 0).."/3"), 65, fonts.f16, {214,225,230})
+        panel(24,364,190,42)
+        centered("LUNA  //  SIGNAL INSTABLE", 374, fonts.f12, {255,177,78})
+        centered((explore.repairs or 0)>=3 and "Acces au terminal retabli" or "Reparer les 3 relais", 390, fonts.f12, {206,222,230})
+        centered(explore.repaired and "ESPACE : CONSULTER LE JOURNAL" or "E : INTERAGIR  |  ESPACE : SAUTER", 430, fonts.f12, {255,190,98})
+        if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f12, {145,170,184}) end
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
@@ -1536,7 +1628,7 @@ function Game.keypressed(key, scancode, isrepeat)
         elseif key == "down" then
             menuSel = menuSel + 1; if menuSel > #menu then menuSel = 1 end; Audio.play("menu")
         elseif key == "e" and not isrepeat then
-            explore.x, explore.t, explore.repaired = 100, 0, false
+            explore.x, explore.y, explore.vy, explore.t, explore.repaired, explore.repairs, explore.logRead = 100, 0, 0, 0, false, 0, false
             state = "explore"
             Audio.play("menu")
         elseif key == "u" then
@@ -1571,14 +1663,29 @@ function Game.keypressed(key, scancode, isrepeat)
             state = "debrief"
         end
     elseif state == "explore" then
-        if confirm(key) then
-            if not explore.repaired and explore.x >= 245 and explore.x <= 395 then
-                explore.repaired = true
+        if key == "space" and not isrepeat and explore.y == 0 then
+            explore.vy = -205
+            explore.grounded = false
+            Audio.play("menu")
+        elseif (key == "e" or key == "a") and not isrepeat then
+            local x=explore.x
+            if not explore.repaired and x>=215 and x<=430 then
+                explore.repairs=math.min(3,(explore.repairs or 0)+1)
                 Audio.play("menu")
-            elseif explore.repaired then
-                state = "title"
+                if explore.repairs>=3 then explore.repaired=true end
+            elseif explore.repaired and x>=455 then
+                explore.logRead=true
+                state="title"
                 buildMenu()
+                toast="Journal de Varga recupere : elle est restee pour maintenir les balises."
+                toastT=5
+            else
+                toast="LUNA : Relais hors service. Approchez-vous d'un panneau lumineux."
+                toastT=2.5
             end
+        elseif key == "escape" then
+            state="title"
+            buildMenu()
         end
     elseif state == "debrief" then
         if confirm(key) then afterDebrief() end
