@@ -91,6 +91,7 @@ if MODE ~= "noaudio" then
     local im = {w=w, h=h}
     function im:getWidth() return self.w end
     function im:getHeight() return self.h end
+    function im:getDimensions() return self.w, self.h end
     function im:setFilter() end
     return im
   end

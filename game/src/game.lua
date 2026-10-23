@@ -55,6 +55,7 @@ local function loadExplorerSprites()
         orientation_right = {"orientation_right"}, orientation_left = {"orientation_left"},
         orientation_up = {"orientation_up"}, orientation_down = {"orientation_down"},
         jump = {"jump_01", "jump_02", "jump_03", "jump_04", "jump_05", "jump_06", "jump_07", "jump_08"},
+        jump_left = {"jump_left_01", "jump_left_02", "jump_left_03", "jump_left_04", "jump_left_05", "jump_left_06", "jump_left_07", "jump_left_08"},
         interaction = {"interaction_01", "interaction_02", "interaction_03", "interaction_04", "interaction_05"},
     }
     for group, files in pairs(names) do
@@ -1523,7 +1524,7 @@ function Game.draw()
             group = "interaction"
             frame = math.min(5, math.max(1, 1 + math.floor((0.62-(explore.interactT or 0))*8)))
         elseif jump then
-            group = "jump"
+            group = (explore.facing or 1) < 0 and "jump_left" or "jump"
             frame = math.min(8, math.max(1, math.floor(((explore.vy or 0)+205)/410*7)+1))
         elseif walking then
             group = (explore.facing or 1) < 0 and "walk_left" or "walk_right"

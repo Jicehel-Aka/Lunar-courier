@@ -32,3 +32,10 @@ carte -> image est dans `src/data.lua` (`D.art`, une entree par carte, dans l'or
 - Chargement a la demande, 3 images au plus en memoire (`src/art.lua`) ; si une image manque ou si `newImage` n'existe
   pas, le bandeau de secours dessine en Lua (portrait de LUNA) prend la place.
 - `tests/run_tests.py` verifie que chaque carte a son image, que les fichiers existent et font 75 px de haut (>= 320 de large).
+
+
+## Sprites du cosmonaute (station fantome)
+
+`sprites/*.png` : 34 images 26x38 (idle, marche droite/gauche x4, saut x8 dans les deux sens, interaction x5, 4 orientations),
+fond transparent, pieds en bas, meme echelle. Dessin a l'echelle 2 (1 pixel de sprite = 1 pixel ecran AKA). Charges par `src/game.lua`
+(dessin Lua de secours si un fichier manque). Generes depuis le pack v6 par `game/tools/make_sprites.py <dossier_du_pack>`.
