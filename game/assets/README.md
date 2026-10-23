@@ -36,6 +36,6 @@ carte -> image est dans `src/data.lua` (`D.art`, une entree par carte, dans l'or
 
 ## Sprites du cosmonaute (station fantome)
 
-`sprites/*.png` : 34 images 26x38 (idle, marche droite/gauche x4, saut x8 dans les deux sens, interaction x5, 4 orientations),
+`sprites/*.png` : 34 images 32x38 (idle, marche droite/gauche x4, saut x8 dans les deux sens, interaction x5, 4 orientations),
 fond transparent, pieds en bas, meme echelle. Dessin a l'echelle 2 (1 pixel de sprite = 1 pixel ecran AKA). Charges par `src/game.lua`
 (dessin Lua de secours si un fichier manque). Generes depuis le pack v6 par `game/tools/make_sprites.py <dossier_du_pack>`.

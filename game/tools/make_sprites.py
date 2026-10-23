@@ -45,25 +45,30 @@ def cut_rgba(img, left=False):
     return rgb, m
 
 def drop_console(rgb, m):
-    """Planches d'interaction : la console (ardoise sombre, a droite) est dessinee par le jeu ; on la retire."""
+    """Planches d'interaction : la console (ardoise sombre, a droite) est dessinee par le jeu ; on la retire.
+    A droite du bord de la console on ne garde que ce qui est clair ou orange (gant, manche) : la main reste entiere."""
     r, g, b = rgb[..., 0].astype(int), rgb[..., 1].astype(int), rgb[..., 2].astype(int)
     slate = (b - r > 6) & (r < 95) & (g < 105) & (b > 40)
     h, w = m.shape
     xs = np.where(m.any(axis=0))[0]
-    # la console est la plus grande zone ardoise de la moitie basse touchant le bord droit du sujet
     cols = slate[h // 3:, :].sum(axis=0)
     edge = None
     for x in range(xs.min() + (xs.max() - xs.min()) // 2, xs.max() + 1):
         if cols[x] >= 18 and cols[x:x + 6].min() >= 14:
             edge = x
             break
-    if edge is not None:
-        m = m.copy()
-        m[:, edge - 1:] = False
-        lab, n = ndi.label(m)
-        if n > 1:
-            sizes = ndi.sum(m, lab, range(1, n + 1))
-            m = lab == (1 + int(np.argmax(sizes)))
+    if edge is None:
+        return m
+    lum = (r + g + b) / 3
+    sat = rgb.max(axis=2).astype(int) - rgb.min(axis=2).astype(int)
+    screen = (b > 140) & (r < 110)          # ecran bleu / lueur cyan
+    keep = ((lum >= 150) | ((sat >= 80) & (r > 150))) & ~screen
+    m = m.copy()
+    m[:, edge - 2:] &= keep[:, edge - 2:]
+    lab, n = ndi.label(m)
+    if n > 1:
+        sizes = ndi.sum(m, lab, range(1, n + 1))
+        m = lab == (1 + int(np.argmax(sizes)))
     return m
 
 def cut_flat(img):
@@ -123,23 +128,36 @@ def build(files, mirror=False):
 
 OUTLINE = (28, 36, 50)
 
-def clean(px):
+def clean(px, glow_off=False):
     """Nettoyage final a la taille du jeu : pixels isoles, lueur cyan de la console, liseres clairs du fond."""
     a = px[..., 3] > 0
     rgb = px[..., :3].astype(int)
+    px = px.copy()
     # lueur cyan de l'ecran de la console (hors combinaison : tres cyan et clair)
     glow = a & (rgb[..., 1] > 170) & (rgb[..., 2] > 190) & (rgb[..., 0] < 190) & (rgb[..., 2] - rgb[..., 0] > 40)
     # (la visiere est bleu fonce : elle n'est pas touchee)
-    a = a & ~glow
+    if glow_off:
+        a = a & ~glow
     # une seule zone connexe (8 voisins)
     lab, n = ndi.label(a, structure=np.ones((3, 3)))
     if n > 1:
         sizes = ndi.sum(a, lab, range(1, n + 1))
         a = lab == (1 + int(np.argmax(sizes)))
+    # trous interieurs (casque, jambes) : rebouches avec la couleur du pixel plein le plus proche
+    holes = ndi.binary_fill_holes(a) & ~a
+    if holes.any():
+        idx = ndi.distance_transform_edt(~a, return_distances=False, return_indices=True)
+        px[holes, :3] = px[idx[0][holes], idx[1][holes], :3]
+        rgb = px[..., :3].astype(int)
+        a = a | holes
     # pixels trop peu entoures : on les retire (deux passes)
     for _ in range(2):
         nb = ndi.convolve(a.astype(int), np.ones((3, 3), int), mode="constant") - a
         a = a & (nb >= 3)
+    lab, n = ndi.label(a, structure=np.ones((3, 3)))
+    if n > 1:
+        sizes = ndi.sum(a, lab, range(1, n + 1))
+        a = lab == (1 + int(np.argmax(sizes)))
     # lisere : pixel de bord clair et peu sature -> couleur de contour sombre
     er = ndi.binary_erosion(a, structure=np.ones((3, 3)), border_value=0)
     edge = a & ~er
@@ -148,11 +166,29 @@ def clean(px):
     fringe = edge & (lum > 150) & (sat < 45)
     out = px.copy()
     out[fringe, :3] = OUTLINE
+    if glow_off:   # interaction, bras tendu vers la console : le gant du pack est masque avec l'ecran, on le redessine
+        cols = np.where(a.any(axis=0))[0]
+        xs0, xs1 = cols.min(), cols.max()
+        tipcol = a[:, xs1]
+        ys = np.where(tipcol)[0]
+        body_right = np.where(a[a.shape[0] * 3 // 4:, :].any(axis=0))[0].max()
+        if xs1 - body_right >= 5 and len(ys) <= 6 and xs1 + 4 < a.shape[1]:
+            cy = int(round(ys.mean()))
+            for dx, col in ((1, (214, 220, 224)), (2, (190, 198, 206)), (3, OUTLINE)):
+                for dy in (-1, 0, 1):
+                    y, x = cy + dy, xs1 + dx
+                    c = col if dx < 3 and abs(dy) < 2 else OUTLINE
+                    if dx == 3 and abs(dy) == 1:
+                        continue
+                    out[y, x, :3] = c; a[y, x] = True
+            for dx in (1, 2):
+                for dy in (-2, 2):
+                    out[cy + dy, xs1 + dx, :3] = OUTLINE; a[cy + dy, xs1 + dx] = True
     out[..., 3] = np.where(a, 255, 0)
     out[~a, :3] = 0
     return out
 
-def render(items, s, anchor, can_w):
+def render(items, s, anchor, can_w, glow_off=False):
     out = []
     for rgb, m, (x0, y0, x1, y1) in items:
         rgba = np.dstack([rgb, (m * 255).astype(np.uint8)])
@@ -168,7 +204,7 @@ def render(items, s, anchor, can_w):
         a_hard = (a > 110) * 255.0         # pas d'alpha doux : bord net pour le runtime AKA
         arr[..., 3:] = a_hard
         arr[..., :3] = np.clip(arr[..., :3], 0, 255)
-        small = Image.fromarray(clean(arr.astype(np.uint8)), "RGBA")
+        small = Image.fromarray(clean(arr.astype(np.uint8), glow_off), "RGBA")
         canvas = Image.new("RGBA", (can_w, CAN_H), (0, 0, 0, 0))
         # centre horizontal : barycentre de l'ensemble (evite le tremblement du cycle de marche)
         ys, xs = np.where(m)
@@ -199,10 +235,10 @@ def main():
     can_w = 0
     for key, (items, s, anchor) in built.items():
         for rgb, m, (x0, y0, x1, y1) in items:
-            can_w = max(can_w, int(round((x1 - x0) * s)) + 4)
+            can_w = max(can_w, int(round((x1 - x0) * s)) + 8)
     can_w += can_w % 2
     for key, (items, s, anchor) in built.items():
-        imgs = render(items, s, anchor, can_w)
+        imgs = render(items, s, anchor, can_w, key == "interaction")
         if key == "orient":
             names = ORIENT_NAMES
         elif key == "idle":
