@@ -397,16 +397,38 @@ function Game.update(dt)
     if state == "explore" then
         explore.t = explore.t + dt
         local keys = I.moveKeys()
-        if anyDown(keys.left) then explore.x = math.max(42, explore.x - 145*dt) end
-        if anyDown(keys.right) then explore.x = math.min(598, explore.x + 145*dt) end
-        if explore.jumpT and explore.jumpT > 0 then
-            explore.jumpT = math.max(0, explore.jumpT-dt)
+        local oldX = explore.x
+        local moving = false
+        if anyDown(keys.left) then
+            explore.x = math.max(42, explore.x - 145*dt)
+            explore.facing = -1
+            moving = true
         end
+        if anyDown(keys.right) then
+            explore.x = math.min(598, explore.x + 145*dt)
+            explore.facing = 1
+            moving = true
+        end
+        explore.vx = dt > 0 and (explore.x-oldX)/dt or 0
+        if moving and explore.y == 0 and (explore.vy or 0) == 0 then
+            explore.walkT = (explore.walkT or 0) + dt * (math.abs(explore.vx) > 1 and 10 or 0)
+        else
+            -- L'animation de marche s'arrete en douceur quand le personnage s'immobilise.
+            explore.walkT = (explore.walkT or 0) * math.max(0, 1-dt*8)
+        end
+        explore.interactT = math.max(0, (explore.interactT or 0)-dt)
         if explore.y < 0 or (explore.vy or 0) ~= 0 then
+            explore.grounded = false
             explore.vy = (explore.vy or 0) + 470*dt
             explore.y = explore.y + explore.vy*dt
-            if explore.y >= 0 then explore.y=0; explore.vy=0; explore.grounded=true end
+            if explore.y >= 0 then
+                explore.y, explore.vy, explore.grounded = 0, 0, true
+                explore.landT = 0.18
+            end
+        else
+            explore.grounded = true
         end
+        explore.landT = math.max(0, (explore.landT or 0)-dt)
         Audio.thrust(false)
         return
     end
@@ -1464,22 +1486,59 @@ function Game.draw()
         local pulse=math.floor((math.sin(explore.t*3)+1)*2)
         color(255,75,58); rect(38,101,18,5+pulse); rect(584,101,18,5+pulse)
         color(80,222,212); rect(282,101,18,3); rect(306,101,18,3)
-        -- astronaute : combinaison, casque, visiere, sac, bottes et ombres
-        local px=math.floor(explore.x); local py=math.floor(explore.y or 0)
-        color(2,7,14); rect(px-13,410+py,27,43)
-        color(33,54,73); rect(px-11,407+py,22,35)
-        color(116,145,164); rect(px-10,409+py,20,4)
-        color(65,91,112); rect(px-15,416+py,6,21); rect(px+9,416+py,6,21)
-        color(21,37,54); rect(px-10,437+py,8,13); rect(px+3,437+py,8,13)
-        color(183,199,208); rect(px-11,450+py,10,4); rect(px+2,450+py,10,4)
-        color(226,232,226); rect(px-9,390+py,18,20)
-        color(121,151,167); rect(px-12,392+py,24,15)
-        color(207,218,220); rect(px-10,387+py,20,18)
-        color(15,43,61); rect(px-7,391+py,14,10)
-        color(67,185,207); rect(px-6,393+py,12,6)
-        color(246,165,66); rect(px-12,402+py,24,4)
-        color(52,76,94); rect(px-15,410+py,5,13); rect(px+10,410+py,5,13)
-        color(95,222,212); rect(px-8,420+py,16,3)
+        -- Astronaute anime : ombre au sol, jambes alternees, bras mobiles et pose de console.
+        local px=math.floor(explore.x)
+        local py=math.floor(explore.y or 0)
+        local walkPhase=(explore.walkT or 0)*math.pi*2
+        local walking=math.abs(explore.vx or 0)>8 and py==0 and (explore.vy or 0)==0
+        local stride=walking and math.sin(walkPhase)*5 or 0
+        local bob=walking and math.abs(math.sin(walkPhase))*1.5 or 0
+        local jump=(py<0 or (explore.vy or 0)~=0)
+        local landing=(explore.landT or 0)>0
+        local facing=explore.facing or 1
+        local interacting=(explore.interactT or 0)>0
+        local armReach=interacting and (1-(explore.interactT or 0)/0.62) or 0
+        local baseY=410+py-bob+(landing and (1-(explore.landT or 0)/0.18)*3 or 0)
+        -- Ombre compacte et aplatie : plus de grand rectangle noir derrière le corps.
+        color(2,7,14); rect(px-12,453,24,3); rect(px-8,451,16,2)
+        -- Sac dorsal, visible sur le cote oppose au sens de marche.
+        color(25,45,64); rect(px-facing*11,414+py-bob,8,19)
+        color(74,111,132); rect(px-facing*12,417+py-bob,3,11)
+        -- Jambes : alternance avant/arriere, repliees pendant le saut.
+        local legA,legB=stride,-stride
+        if jump then legA,legB=-3,3 end
+        if landing then legA,legB=legA*0.45,legB*0.45 end
+        color(21,37,54)
+        love.graphics.polygon("fill",px-7,432+py-bob,px-1,432+py-bob,px-2+legA,446+py-bob,px-8+legA,446+py-bob)
+        love.graphics.polygon("fill",px+1,432+py-bob,px+7,432+py-bob,px+8+legB,446+py-bob,px+2+legB,446+py-bob)
+        color(183,199,208)
+        rect(px-9+legA,446+py-bob,9,4); rect(px+1+legB,446+py-bob,9,4)
+        color(33,54,73); rect(px-10,408+py-bob,20,27)
+        color(116,145,164); rect(px-9,410+py-bob,18,3)
+        -- Epaules et bras articulés ; le bras avant se tend réellement vers la console.
+        color(52,76,94)
+        if interacting then
+            local handX=px+facing*(10+armReach*13)
+            local handY=baseY+4-armReach*10
+            love.graphics.polygon("fill",px+facing*7,414+py-bob,px+facing*12,416+py-bob,handX,handY+3,handX-facing*4,handY+5)
+            color(183,199,208); rect(handX-facing*2,handY,5,5)
+            -- Petit flash sur le gant pendant la manipulation.
+            if math.floor(explore.t*12)%2==0 then color(255,190,79); rect(handX+facing*3,handY+1,3,3) end
+        else
+            local armSwing=walking and math.sin(walkPhase+math.pi)*4 or 0
+            love.graphics.polygon("fill",px-facing*8,413+py-bob,px-facing*12,416+py-bob,px-facing*(13+armSwing),429+py-bob,px-facing*(8+armSwing),431+py-bob)
+            love.graphics.polygon("fill",px+facing*7,413+py-bob,px+facing*11,416+py-bob,px+facing*(12-armSwing),428+py-bob,px+facing*(7-armSwing),430+py-bob)
+            color(183,199,208); rect(px-facing*(11+armSwing),428+py-bob,5,4); rect(px+facing*(10-armSwing),427+py-bob,5,4)
+        end
+        -- Casque et visière.
+        color(226,232,226); rect(px-9,390+py-bob,18,20)
+        color(121,151,167); rect(px-12,392+py-bob,24,15)
+        color(207,218,220); rect(px-10,387+py-bob,20,18)
+        color(15,43,61); rect(px-7,391+py-bob,14,10)
+        color(67,185,207); rect(px-6,393+py-bob,12,6)
+        color(105,222,230); rect(px-facing*4,393+py-bob,4,2)
+        color(246,165,66); rect(px-12,402+py-bob,24,4)
+        color(95,222,212); rect(px-8,420+py-bob,16,3)
         -- HUD diegetique
         panel(22,20,596,64)
         color(79,221,213); rect(36,34,4,34)
@@ -1550,6 +1609,8 @@ local function afterDebrief()
         showCards(missionIndex, "post", function()
             if missionIndex == 3 then
                 explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
+                explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
+                explore.facing, explore.grounded = 1, true
                 explore.repaired, explore.repairs, explore.logRead, explore.campaign = false, 0, false, true
                 state = "explore"
             else
@@ -1643,6 +1704,8 @@ function Game.keypressed(key, scancode, isrepeat)
         elseif (key == "e" or (I.aka and key == "d")) and not isrepeat then
             -- E sur PC ; bouton D sur AKA pour lancer la zone de test sans progresser dans la campagne.
             explore.x, explore.y, explore.vy, explore.t, explore.repaired, explore.repairs, explore.logRead, explore.campaign = 100, 0, 0, 0, false, 0, false, false
+            explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
+            explore.facing, explore.grounded = 1, true
             state = "explore"
             Audio.play("menu")
         elseif key == "u" then
@@ -1677,11 +1740,13 @@ function Game.keypressed(key, scancode, isrepeat)
             state = "debrief"
         end
     elseif state == "explore" then
-        if key == "space" and not isrepeat and explore.y == 0 then
+        if key == "space" and not isrepeat and explore.grounded and explore.y == 0 and (explore.vy or 0)==0 then
             explore.vy = -205
             explore.grounded = false
+            explore.walkT = 0
             Audio.play("menu")
         elseif (key == "e" or key == "a") and not isrepeat then
+            explore.interactT = 0.62
             local x=explore.x
             local relay = math.floor((x-230+45)/90)+1
             local relayX = 230+(relay-1)*90
