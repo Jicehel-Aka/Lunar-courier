@@ -277,6 +277,18 @@ for mi in range(1, nm+1):
         if dbg()['state']=='card': seen+=1
         key('space'); step(1); g+=1
     d=dbg()
+    # M03 ouvre une sequence d'exploration avant M04 : reparer les 3 relais puis lire le terminal.
+    # Simule les commandes joueur au lieu de sauter l'interlude narratif.
+    if mi == 3 and d['state'] == 'explore':
+        for frames in (33, 18, 19):
+            hold('right', True); step(frames); hold('right', False)
+            key('a'); step(1)
+        hold('right', True); step(12); hold('right', False)
+        key('a'); step(1)
+        d = dbg()
+        if d['state'] != 'card' or d['mi'] != 4:
+            print("station interlude did not launch M04:", d['state'], d['mi'])
+            FAILED.append("station interlude")
     # entering next mission: pre cards counted inside 'seen'
     print(f"M{mi:02d}: attempts={results[mi][0]} fuel={results[mi][1]} hull={results[mi][2]} t={results[mi][3]}s | debrief={st_deb} cards_shown={seen} -> state={d['state']} mi={d['mi']}")
     if d['state']=='card':
