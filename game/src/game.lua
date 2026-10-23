@@ -1139,6 +1139,9 @@ local function drawTitle()
     centered(I.t("hint1"), 402, fonts.f24, {158,184,202})
     centered(I.t("hint2"), 426, fonts.f24, {158,184,202})
     centered(I.t("hint3"), 452, fonts.f16, {120,151,170})
+    if I.aka then
+        centered("D : TEST STATION FANTOME", 466, fonts.f12, {255,190,79})
+    end
 end
 
 -- Aide : libelles de touches selon la plateforme / le clavier / la langue.
@@ -1636,7 +1639,8 @@ function Game.keypressed(key, scancode, isrepeat)
             menuSel = menuSel - 1; if menuSel < 1 then menuSel = #menu end; Audio.play("menu")
         elseif key == "down" then
             menuSel = menuSel + 1; if menuSel > #menu then menuSel = 1 end; Audio.play("menu")
-        elseif key == "e" and not isrepeat then
+        elseif (key == "e" or (I.aka and key == "d")) and not isrepeat then
+            -- E sur PC ; bouton D sur AKA pour lancer la zone de test sans progresser dans la campagne.
             explore.x, explore.y, explore.vy, explore.t, explore.repaired, explore.repairs, explore.logRead, explore.campaign = 100, 0, 0, 0, false, 0, false, false
             state = "explore"
             Audio.play("menu")
