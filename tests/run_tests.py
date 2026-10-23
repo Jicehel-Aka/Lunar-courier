@@ -285,8 +285,13 @@ for mi in range(1, nm+1):
             hold('right', True); step(frames); hold('right', False)
             key('a'); step(1)
         hold('right', True); step(12); hold('right', False)
-        key('a'); step(1)
+        key('a'); step(1)  # lire le rapport de maintenance
         d = dbg()
+        if d['state'] == 'explore':
+            # La sortie est plus a droite : rejoindre le sas apres la lecture du rapport.
+            hold('right', True); step(18); hold('right', False)
+            key('a'); step(1)
+            d = dbg()
         if d['state'] != 'card' or d['cardIdx'] != 1:
             print("station interlude did not launch M04:", d['state'], d['mi'], d['cardIdx'])
             FAILED.append("station interlude")
