@@ -1229,6 +1229,52 @@ end
 
 local NARRATION = {179,205,219}
 
+-- Effets narratifs legers : scintillement, balayage de capteurs et faisceau final.
+-- Dessines en primitives opaques pour rester compatibles avec AKA-Love.
+local function drawStoryEffects(card)
+    local bannerH = 150
+    for i = 1, 28 do
+        local sx = (i * 97 + 31) % W
+        local sy = (i * 43 + 17) % bannerH
+        local pulse = math.sin(time * (1.3 + (i % 4) * 0.35) + i)
+        if pulse > 0.45 then
+            color(62, 157, 185)
+            rect(sx, sy, (i % 5 == 0) and 3 or 2, 2)
+        elseif pulse < -0.78 then
+            color(28, 73, 112)
+            rect(sx, sy, 2, 2)
+        end
+    end
+
+    -- Une ligne de scan parcourt doucement l'image comme un balayage LUNA.
+    local scanY = 18 + math.floor((time * 23) % 112)
+    color(20, 75, 105)
+    rect(0, scanY, W, 2)
+
+    -- Les moments cles ont un accent visuel distinct, sans masquer le texte.
+    local title = card and card[1] or ""
+    if title == "ALLUMAGE" then
+        local phase = (time * 150) % (W + 180)
+        local beamX = math.floor(phase - 90)
+        color(255, 190, 79)
+        rect(beamX, 18, 5, 86)
+        color(112, 230, 226)
+        rect(beamX + 5, 18, 2, 86)
+    elseif title == "ADIEU" or title == "EPILOGUE" or title == "FIN" then
+        local pulse = math.sin(time * 2.1)
+        local cx = 520 + math.floor(pulse * 5)
+        color(24, 100, 128)
+        rect(cx - 9, 34, 18, 3)
+        rect(cx - 3, 27, 6, 17)
+        color(82, 226, 218)
+        rect(cx - 2, 30, 4, 11)
+        if title == "FIN" then
+            color(255, 190, 79)
+            rect(70, 142, math.floor((time * 44) % 500), 2)
+        end
+    end
+end
+
 -- Portrait vectoriel de LUNA : dessin de secours quand l'illustration est absente.
 local function drawLunaPortrait(x, y)
     color(3,14,28); rect(x, y, 60, 60)
@@ -1274,6 +1320,7 @@ local function drawCard()
         drawLunaPortrait(14, 20)
         color(28,100,119); rect(90, 74, 500, 2)
     end
+    drawStoryEffects(c)
     -- Mise en forme du texte : couleur par interlocuteur, portrait du premier interlocuteur.
     local lines = wrap(c[2], 500, 16)
     local cols, cur, newPara, first = {}, NARRATION, true, nil
