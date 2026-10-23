@@ -92,6 +92,7 @@ end
 -- ---------------------------------------------------------------------------
 local STR = {}
 STR.fr = {
+    explore_restored = "SYSTEME RETABLI", explore_abandoned = "STATION ABANDONNEE", explore_confirmed = "La console confirme le redemarrage de la balise.", explore_prompt = "Approchez du terminal orange puis appuyez sur A / ESPACE.", explore_move = "GAUCHE / DROITE : SE DEPLACER", explore_back = "A / ESPACE : RETOUR AU TITRE", explore_repair = "A / ESPACE : REPARER LE TERMINAL", explore_pc_hint = "E : LANCER CE PROTOTYPE DEPUIS LE TITRE",
     title_sub = "UNE AVENTURE LUNAIRE", title_tag = "LIVREZ LA DERNIERE LUMIERE",
     menu_continue = "CONTINUER  M%02d", menu_new = "NOUVELLE PARTIE", menu_chapter = "CHAPITRE %d",
     hint1 = "HAUT / BAS : MENU", hint2 = "{A} : OK    {B} : SON", hint3 = "{MENU} MENU  {C} PAUSE  {D} RECOMMENCER",
@@ -127,6 +128,7 @@ STR.fr = {
     speakers = {{"LUNA :", {120,235,225}, "luna"}, {"VARGA :", {255,188,83}, "varga"}, {"CONTROLE :", {140,225,150}, "controle"}},
 }
 STR.en = {
+    explore_restored = "SYSTEM RESTORED", explore_abandoned = "ABANDONED STATION", explore_confirmed = "The console confirms the beacon restart.", explore_prompt = "Approach the orange terminal and press A / SPACE.", explore_move = "LEFT / RIGHT: MOVE", explore_back = "A / SPACE: BACK TO TITLE", explore_repair = "A / SPACE: REPAIR TERMINAL", explore_pc_hint = "E: START THIS PROTOTYPE FROM THE TITLE SCREEN",
     title_sub = "A LUNAR ADVENTURE", title_tag = "DELIVER THE LAST LIGHT",
     menu_continue = "CONTINUE  M%02d", menu_new = "NEW GAME", menu_chapter = "CHAPTER %d",
     hint1 = "UP / DOWN : MENU", hint2 = "{A} : OK    {B} : SOUND", hint3 = "{MENU} MENU  {C} PAUSE  {D} RESTART",
@@ -162,6 +164,7 @@ STR.en = {
     speakers = {{"LUNA :", {120,235,225}, "luna"}, {"VARGA :", {255,188,83}, "varga"}, {"CONTROL :", {140,225,150}, "controle"}},
 }
 STR.pt = {
+    explore_restored = "SISTEMA RESTAURADO", explore_abandoned = "ESTACAO ABANDONADA", explore_confirmed = "O console confirma o reinicio do farol.", explore_prompt = "Aproxime-se do terminal laranja e pressione A / ESPACO.", explore_move = "ESQUERDA / DIREITA: MOVER", explore_back = "A / ESPACO: VOLTAR AO TITULO", explore_repair = "A / ESPACO: REPARAR TERMINAL", explore_pc_hint = "E: INICIAR ESTE PROTOTIPO NO TITULO",
     title_sub = "UMA AVENTURA LUNAR", title_tag = "ENTREGUE A ULTIMA LUZ",
     menu_continue = "CONTINUAR  M%02d", menu_new = "NOVO JOGO", menu_chapter = "CAPITULO %d",
     hint1 = "CIMA / BAIXO : MENU", hint2 = "{A} : OK    {B} : SOM", hint3 = "{MENU} MENU  {C} PAUSA  {D} REINICIAR",
@@ -197,6 +200,7 @@ STR.pt = {
     speakers = {{"LUNA :", {120,235,225}, "luna"}, {"VARGA :", {255,188,83}, "varga"}, {"CONTROLE :", {140,225,150}, "controle"}},
 }
 STR.de = {
+    explore_restored = "SYSTEM WIEDERHERGESTELLT", explore_abandoned = "VERLASSENE STATION", explore_confirmed = "Die Konsole bestaetigt den Neustart der Bake.", explore_prompt = "Gehe zum orangefarbenen Terminal und druecke A / LEERTASTE.", explore_move = "LINKS / RECHTS: BEWEGEN", explore_back = "A / LEERTASTE: ZUM TITEL", explore_repair = "A / LEERTASTE: TERMINAL REPARIEREN", explore_pc_hint = "E: PROTOTYP VOM TITEL STARTEN",
     title_sub = "EIN MONDABENTEUER", title_tag = "BRING DAS LETZTE LICHT",
     menu_continue = "WEITER  M%02d", menu_new = "NEUES SPIEL", menu_chapter = "KAPITEL %d",
     hint1 = "HOCH / RUNTER : MENUE", hint2 = "{A} : OK    {B} : TON", hint3 = "{MENU} MENUE {C} PAUSE {D} NEUSTART",
@@ -232,6 +236,7 @@ STR.de = {
     speakers = {{"LUNA :", {120,235,225}, "luna"}, {"VARGA :", {255,188,83}, "varga"}, {"KONTROLLE :", {140,225,150}, "controle"}},
 }
 STR.es = {
+    explore_restored = "SISTEMA RESTAURADO", explore_abandoned = "ESTACION ABANDONADA", explore_confirmed = "La consola confirma el reinicio de la baliza.", explore_prompt = "Acercate al terminal naranja y pulsa A / ESPACIO.", explore_move = "IZQUIERDA / DERECHA: MOVER", explore_back = "A / ESPACIO: VOLVER AL TITULO", explore_repair = "A / ESPACIO: REPARAR TERMINAL", explore_pc_hint = "E: INICIAR ESTE PROTOTIPO DESDE EL TITULO",
     title_sub = "UNA AVENTURA LUNAR", title_tag = "ENTREGA LA ULTIMA LUZ",
     menu_continue = "CONTINUAR  M%02d", menu_new = "NUEVA PARTIDA", menu_chapter = "CAPITULO %d",
     hint1 = "ARRIBA / ABAJO : MENU", hint2 = "{A} : OK    {B} : SONIDO", hint3 = "{MENU} MENU  {C} PAUSA  {D} REINICIAR",
@@ -267,6 +272,7 @@ STR.es = {
     speakers = {{"LUNA :", {120,235,225}, "luna"}, {"VARGA :", {255,188,83}, "varga"}, {"CONTROL :", {140,225,150}, "controle"}},
 }
 STR.it = {
+    explore_restored = "SISTEMA RIPRISTINATO", explore_abandoned = "STAZIONE ABBANDONATA", explore_confirmed = "La console conferma il riavvio del faro.", explore_prompt = "Avvicinati al terminale arancione e premi A / SPAZIO.", explore_move = "SINISTRA / DESTRA: MUOVI", explore_back = "A / SPAZIO: TORNA AL TITOLO", explore_repair = "A / SPAZIO: RIPARA IL TERMINALE", explore_pc_hint = "E: AVVIA IL PROTOTIPO DAL TITOLO",
     title_sub = "UN'AVVENTURA LUNARE", title_tag = "CONSEGNA L'ULTIMA LUCE",
     menu_continue = "CONTINUA  M%02d", menu_new = "NUOVA PARTITA", menu_chapter = "CAPITOLO %d",
     hint1 = "SU / GIU : MENU", hint2 = "{A} : OK    {B} : SUONO", hint3 = "{MENU} MENU  {C} PAUSA  {D} RIAVVIA",
