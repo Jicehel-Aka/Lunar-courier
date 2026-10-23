@@ -1678,10 +1678,17 @@ function Game.keypressed(key, scancode, isrepeat)
             Audio.play("menu")
         elseif (key == "e" or key == "a") and not isrepeat then
             local x=explore.x
-            if not explore.repaired and x>=215 and x<=430 then
-                explore.repairs=math.min(3,(explore.repairs or 0)+1)
-                Audio.play("menu")
-                if explore.repairs>=3 then explore.repaired=true end
+            local relay = math.floor((x-230+45)/90)+1
+            local relayX = 230+(relay-1)*90
+            if not explore.repaired and relay>=1 and relay<=3 and math.abs(x-relayX)<=38 then
+                if relay==(explore.repairs or 0)+1 then
+                    explore.repairs=relay
+                    Audio.play("menu")
+                    if explore.repairs>=3 then explore.repaired=true end
+                else
+                    toast="LUNA : Suivez l'ordre des relais, de gauche a droite."
+                    toastT=2
+                end
             elseif explore.repaired and x>=455 then
                 explore.logRead=true
                 if explore.campaign then
