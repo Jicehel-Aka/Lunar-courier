@@ -43,6 +43,31 @@ local radioShown = {}
 local paused = false
 local windCur = 0
 local fonts = {}
+-- Sprites optionnels de l'explorateur. Sans fichiers propres, le rendu procedural reste actif.
+local explorerSprites = {}
+local function loadExplorerSprites()
+    explorerSprites = {}
+    if not (love and love.graphics and love.graphics.newImage) then return end
+    local names = {
+        idle = {"idle_01"},
+        walk_right = {"walk_right_01", "walk_right_02", "walk_right_03", "walk_right_04"},
+        walk_left = {"walk_left_01", "walk_left_02", "walk_left_03", "walk_left_04"},
+        orientation_right = {"orientation_right"}, orientation_left = {"orientation_left"},
+        orientation_up = {"orientation_up"}, orientation_down = {"orientation_down"},
+        jump = {"jump_01", "jump_02", "jump_03", "jump_04", "jump_05", "jump_06", "jump_07", "jump_08"},
+        interaction = {"interaction_01", "interaction_02", "interaction_03", "interaction_04", "interaction_05"},
+    }
+    for group, files in pairs(names) do
+        explorerSprites[group] = {}
+        for i, name in ipairs(files) do
+            local ok, img = pcall(love.graphics.newImage, "assets/sprites/"..name..".png")
+            if ok and img then
+                if img.setFilter then pcall(img.setFilter, img, "nearest", "nearest") end
+                explorerSprites[group][i] = img
+            end
+        end
+    end
+end
 local tg, runs, maxG = {}, {}, 390   -- terrain : hauteur par colonne, segments, plus bas
 local worldW, ncol, camX = 640, 160, 0
 local terrPts = {}
@@ -286,6 +311,7 @@ function Game.load()
     if Save.kb then I.setKb(Save.kb, true) end
     Audio.musicOn = (Save.music ~= 0)
     Audio.load()
+    loadExplorerSprites()
     resetMission()
     buildMenu()
 end
@@ -1486,6 +1512,35 @@ function Game.draw()
         local pulse=math.floor((math.sin(explore.t*3)+1)*2)
         color(255,75,58); rect(38,101,18,5+pulse); rect(584,101,18,5+pulse)
         color(80,222,212); rect(282,101,18,3); rect(306,101,18,3)
+        -- Explorateur : sprite propre si disponible, sinon rendu de secours existant.
+        local px=math.floor(explore.x)
+        local py=math.floor(explore.y or 0)
+        local walking=math.abs(explore.vx or 0)>8 and py==0 and (explore.vy or 0)==0
+        local jump=(py<0 or (explore.vy or 0)~=0)
+        local interacting=(explore.interactT or 0)>0
+        local group, frame
+        if interacting then
+            group = "interaction"
+            frame = math.min(5, math.max(1, 1 + math.floor((0.62-(explore.interactT or 0))*8)))
+        elseif jump then
+            group = "jump"
+            frame = math.min(8, math.max(1, math.floor(((explore.vy or 0)+205)/410*7)+1))
+        elseif walking then
+            group = (explore.facing or 1) < 0 and "walk_left" or "walk_right"
+            frame = 1 + math.floor((explore.walkT or 0)*7)%4
+        else
+            group = (explore.facing or 1) < 0 and "orientation_left" or "orientation_right"
+            frame = 1
+        end
+        local frames=explorerSprites[group] or {}
+        local sprite=frames[frame] or frames[1]
+        if sprite then
+            local sw,sh=sprite:getDimensions()
+            local targetH=76
+            local scale=targetH/math.max(1,sh)
+            color(255,255,255)
+            love.graphics.draw(sprite, px-sw*scale*0.5, 451-targetH+py, 0, scale, scale)
+        else
         -- Astronaute anime : ombre au sol, jambes alternees, bras mobiles et pose de console.
         local px=math.floor(explore.x)
         local py=math.floor(explore.y or 0)
@@ -1539,6 +1594,7 @@ function Game.draw()
         color(105,222,230); rect(px-facing*4,393+py-bob,4,2)
         color(246,165,66); rect(px-12,402+py-bob,24,4)
         color(95,222,212); rect(px-8,420+py-bob,16,3)
+        end
         -- HUD diegetique
         panel(22,20,596,64)
         color(79,221,213); rect(36,34,4,34)
