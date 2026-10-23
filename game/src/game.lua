@@ -1869,7 +1869,7 @@ function Game.keypressed(key, scancode, isrepeat)
                 explore.logRead=true
                 explore.phase="exit"
                 Audio.play("menu")
-                toast="RAPPORT VARGA : relais restaures. Une ligne de diagnostic reste incomplete."
+                toast="RAPPORT VARGA : diagnostic incomplet."
                 toastT=5
             elseif explore.logRead and x>=535 then
                 if explore.campaign then
