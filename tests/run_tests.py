@@ -121,6 +121,16 @@ Game._dbg = function()
           menuN=#menu, menuSel=menuSel, musicName=Audio.musicName, musicOn=Audio.musicOn,
           tgcheck=(function() local ok=true for i,p in ipairs(pads) do for x=p.x-PAD_HALF-8,p.x+PAD_HALF+8,4 do if groundAt(x)~=p.y then ok=false end end end return ok end)()}
 end
+Game._set = function(t)
+  for k,v in pairs(t) do ship[k] = v end
+  if t.fuel then fuel = t.fuel end
+  failed = false; hitCooldown = 0
+end
+Game._ship = function() return {x=ship.x, y=ship.y, vx=ship.vx, vy=ship.vy, angle=ship.angle, resting=ship.resting, landed=ship.landed, fuel=fuel, hull=hull, gy=groundAt(ship.x), failed=failed} end
+Game._begin = function(i) beginMission(i) end
+Game._explore = function() loadExplorerSprites(); explore.x, explore.y, explore.vy, explore.t = 100, 0, 0, 0; explore.repaired, explore.repairs, explore.campaign = false, 0, false; state = 'explore' end
+Game._title = function() state = 'title'; buildMenu() end
+Game._forcegame = function() state = 'game'; paused = false end
 Game._maxg = function(x1,x2)
   if x1>x2 then x1,x2=x2,x1 end
   local lo = 9999
@@ -253,6 +263,87 @@ import ap
 autopilot = ap.make_autopilot(dbg, beams, debris, step, hold, clamp, lambda a,b: int(lua.eval(f'require("src.game")._maxg({a},{b})')))
 results={}
 advance_to_game()
+
+# ---------------------------------------------------------------- 2b. physique d'atterrissage (hors plateforme)
+def ship_state():
+    t = lua.eval('require("src.game")._ship()'); return {k: t[k] for k in t}
+def setship(**kw):
+    items = ",".join(f"{k}={('true' if v is True else 'false' if v is False else v)}" for k,v in kw.items())
+    lua.execute('require("src.game")._set({'+items+'})')
+PHYS = []
+def phys_land(label, angle, vy, vx=0.0, fuel=100, x=None, secs=8.0, takeoff=True):
+    d = dbg(); pad_x = d['padx']
+    gx = x if x is not None else min(560, pad_x + 160) if pad_x < 420 else pad_x - 160
+    gy = lua.eval(f'require("src.game")._maxg({gx},{gx})')
+    setship(x=gx, y=gy-60, vx=vx, vy=vy, angle=angle, fuel=fuel, resting=False, landed=False)
+    contacts = 0; prev_vy = vy; rest_frames = 0; hist = []
+    for _ in range(int(secs*30)):
+        step(1); st = ship_state(); hist.append(st)
+        if st['vy'] < 0 and prev_vy >= 0 and st['gy'] - st['y'] < 16: contacts += 1
+        prev_vy = st['vy']
+        if st['resting']: rest_frames += 1
+    st = ship_state()
+    rec = {"label": label, "rest_frames": rest_frames, "contacts": contacts, "angle": round(st['angle'],2), "hull": st['hull'], "failed": st['failed']}
+    if takeoff and not st['failed'] and st['fuel'] > 0:
+        gy0 = st['y']
+        hold('up', True); step(60); hold('up', False)
+        st2 = ship_state(); rec["lift"] = round(gy0 - st2['y'], 1)
+    PHYS.append(rec); return rec
+PHYS_PROBLEMS = []
+LEAKS = {}
+def run_physics():
+    global badx, PHYS_PROBLEMS, LEAKS
+    lua.execute('require("src.game")._begin(1)'); lua.execute('require("src.game")._forcegame()')
+    for lab, ang, vy in (("plat", 0.0, 20), ("incline 0.25", 0.25, 20), ("incline 0.45", 0.45, 20), ("incline 0.6", 0.6, 20), ("incline 0.9", 0.9, 25), ("rapide", 0.0, 55), ("tres rapide", 0.0, 80)):
+        r = phys_land(lab, ang, vy)
+        print("PHYS", r)
+    for lab, kw in (("fuel 0", dict(angle=0.0, vy=20, fuel=0, takeoff=False)), ("vx 60", dict(angle=0.0, vy=20, vx=60)), ("vx 90 incline", dict(angle=0.4, vy=30, vx=90)), ("renverse", dict(angle=2.5, vy=20))):
+        r = phys_land(lab, **kw); print("PHYS", r)
+    # balayage : poses a de nombreux x (bords de plateforme, pentes), sur les 18 missions ; re-decollage obligatoire
+    badx = []; nsweep = 0
+    for mi in range(1, nm+1):
+        lua.execute(f'require("src.game")._begin({mi})')
+        if dbg()['state'] != 'game': lua.execute('require("src.game")._forcegame()')
+        wwid = int(dbg()['worldW'])
+        for gx in range(30, wwid-30, 23):
+            for ang, vx in ((0.0, 0), (0.35, 40), (-0.4, -50)):
+                lua.execute(f'require("src.game")._begin({mi})'); lua.execute('require("src.game")._forcegame()')
+                r = phys_land(f"M{mi} x{gx}", ang, 22, vx=vx, x=gx, secs=2.5); nsweep += 1
+                st = ship_state()
+                if st['landed']: continue                       # pose sur la plateforme finale : mission terminee, normal
+                if r.get('lift', 999) < 60 or r['contacts'] > 3: badx.append((mi, gx, ang, vx, r))
+    print("PHYS sweep:", nsweep, "poses,", len(badx), "problemes", [(b[0], b[1], b[2], b[4].get('lift'), b[4]['contacts']) for b in badx][:12])
+
+    # ---------------------------------------------------------------- 2c. fuite memoire Lua en inactivite prolongee
+    def lua_mem():
+        lua.execute("collectgarbage('collect'); collectgarbage('collect')"); return float(lua.eval("collectgarbage('count')"))
+    LEAKS = {}
+    def leak_probe(label, setup, frames=3000):
+        setup(); step(30); m0 = lua_mem()
+        for _ in range(frames): step(1)
+        m1 = lua_mem(); LEAKS[label] = round(m1-m0, 1)
+        print("LEAK", label, "frames", frames, "delta KB", LEAKS[label], "| total KB", round(m1))
+    lua.execute('require("src.game")._begin(1)'); lua.execute('require("src.game")._forcegame()')
+    setship(x=300, y=100, vx=0, vy=0, angle=0, resting=False, landed=False)
+    leak_probe("vol en cours (ship pose hors plateforme)", lambda: setship(x=200, y=lua.eval('require("src.game")._maxg(200,200)')-12, vx=0, vy=0))
+    leak_probe("vol avec poussee et particules", lambda: hold('up', True), 600); hold('up', False)
+    lua.execute('require("src.game")._explore()')
+    leak_probe("station (explore) inactive", lambda: None)
+    lua.execute('require("src.game")._title()')
+    leak_probe("ecran titre inactif", lambda: None)
+    PHYS_PROBLEMS = []
+    for r in [x for x in PHYS if not x['label'].startswith('M')]:
+        if r['label'] in ('incline 0.6', 'incline 0.9', 'renverse') and r['contacts'] > 0: PHYS_PROBLEMS.append(f"rebonds repetes sur pose inclinee: {r}")
+        if r['label'] == 'fuel 0' and not r['failed']: PHYS_PROBLEMS.append(f"pose sans carburant : blocage non detecte: {r}")
+        if r['label'] not in ('fuel 0',) and r.get('lift', 0) < 60: PHYS_PROBLEMS.append(f"redecollage impossible: {r}")
+    if badx: PHYS_PROBLEMS.append(f"balayage de pose : {len(badx)} cas sans redecollage ou avec rebonds repetes, ex. {badx[0]}")
+    for k, v in LEAKS.items():
+        if v > 30: PHYS_PROBLEMS.append(f"fuite memoire Lua en inactivite ({k}) : +{v} Ko")
+    print("PHYSIQUE/MEMOIRE:", PHYS_PROBLEMS or "ok")
+
+if mode == "physics":
+    run_physics()
+    sys.exit(1 if PHYS_PROBLEMS else 0)
 total_attempts=0
 FAILED=[]
 for mi in range(1, nm+1):
@@ -305,6 +396,9 @@ if mode != "noaudio":
     a = lua.eval('__aud()')
     print("audio loaded:", sorted(k for k in a['loaded']), "missing:", sorted(k for k in a['missing']) or "none")
     print("audio plays:", {k: a['plays'][k] for k in a['plays']})
+
+if mode != "physics":
+    run_physics()
 
 # ---------------------------------------------------------------- 3. PC / langues / menu / capture
 EXTRA = []
@@ -372,6 +466,7 @@ else:
 for k in v: problems.append("violation: "+str(k))
 if FAILED: problems.append("missions not completed: "+str(FAILED))
 for x in EXTRA: problems.append("extra: "+x)
+for x in PHYS_PROBLEMS: problems.append("physique: "+x)
 if CONTENT: problems.append("content: "+str(CONTENT))
 if problems:
     print("TEST PROBLEMS:"); [print("  -", x) for x in problems]; sys.exit(1)

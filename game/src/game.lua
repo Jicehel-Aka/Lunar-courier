@@ -36,6 +36,7 @@ local ship = {}
 local missionIndex, fuel, hull, cargo, missionTime = 1, 100, 100, 0, 0
 local padIndex, padDone = 1, {}
 local failed, fuelWarned, lowWarned = false, false, false
+local stuckT = 0   -- duree passee posee sans carburant
 local thrustTimer = 0
 local message, messageTimer = "", 0
 local noteTimers = {}
@@ -45,6 +46,12 @@ local windCur = 0
 local fonts = {}
 -- Sprites optionnels de l'explorateur. Sans fichiers propres, le rendu procedural reste actif.
 local explorerSprites = {}
+local function unloadExplorerSprites()
+    -- Les 34 images (~165 Ko decodees) ne restent en memoire que pendant la station.
+    if next(explorerSprites) == nil then return end
+    explorerSprites = {}
+    collectgarbage("collect")
+end
 local function loadExplorerSprites()
     explorerSprites = {}
     if not (love and love.graphics and love.graphics.newImage) then return end
@@ -260,6 +267,7 @@ local function resetMission()
     camX = clamp(ship.x - W/2, 0, math.max(0, worldW - W))
     fuel, hull, cargo, missionTime = 100, 100, 0, 0
     failed, fuelWarned, lowWarned, paused = false, false, false, false
+    stuckT = 0
     particles, noteTimers, windCur, radioShown = {}, {}, 0, {}
     message, messageTimer = "", 0
     thrustTimer = 0
@@ -303,16 +311,15 @@ function Game.load()
     elseif love.timer and love.timer.getTime then math.randomseed(math.floor(love.timer.getTime()*100000))
     else math.randomseed(12345) end
     fonts.f8, fonts.f16, fonts.f24, fonts.f32, fonts.f48 = mkfont(8), mkfont(16), mkfont(24), mkfont(32), mkfont(48)
-    fonts.f12 = fonts.f8
+    fonts.f12 = fonts.f16   -- 8 px reels sur l'ecran AKA (f8 = 4 px, illisible)
     for i = 1, 22 do
-        stars[#stars+1] = {x=math.random(0,W), y=math.random(0,330), s=math.random(2,3), phase=math.random()*6.28}
+        stars[#stars+1] = {x=math.random(0,W), y=math.random(0,330), s=4, phase=math.random()*6.28}  -- 4 px virtuels = 2 px reels sur l'AKA
     end
     Save.load()
     if Save.lang then I.setLang(Save.lang) end
     if Save.kb then I.setKb(Save.kb, true) end
     Audio.musicOn = (Save.music ~= 0)
     Audio.load()
-    loadExplorerSprites()
     resetMission()
     buildMenu()
 end
@@ -326,7 +333,7 @@ local function addParticles(x,y,count,kind)
         local speed = math.random(15,85)
         particles[#particles+1] = {
             x=x, y=y, vx=math.cos(a)*speed, vy=math.sin(a)*speed-math.random(0,25),
-            life=0.35+math.random()*0.55, size=math.random(2,3), kind=kind or "dust"}
+            life=0.35+math.random()*0.55, size=math.random(2,3)*2, kind=kind or "dust"}   -- 4 ou 6 px virtuels (2 a 3 px reels)
     end
 end
 
@@ -575,10 +582,17 @@ function Game.update(dt)
             else
                 note("nocargo", I.t("no_cargo"), 2.5, 4)
             end
-        elseif math.abs(ship.vy) < 60 and math.abs(ship.angle) < 0.5 then
+        elseif math.abs(ship.vy) < 60 then
+            -- Contact doux : le vaisseau se pose toujours (plus de micro-rebonds repetes sur une pente ou
+            -- incline) ; s'il est trop penche (> 0,5 rad) il se redresse de lui-meme sur ses jambes.
             ship.vy = 0
             ship.vx = ship.vx * 0.8
             ship.resting = true
+            if math.abs(ship.angle) > 0.5 then
+                local k = ship.angle > 0 and 1 or -1
+                ship.angle = ship.angle - k * math.min(math.abs(ship.angle) - 0.5, 2.0 * dt)
+                note("tilt", I.t("tilt"), 2, 5)
+            end
             if math.abs(impact) > 12 then
                 if onLive then note("rough", I.t("too_fast"), 2.2, 3)
                 else note("off", I.t("off_pad"), 2.5, 4) end
@@ -598,6 +612,14 @@ function Game.update(dt)
                 Audio.play("bounce")
             end
         end
+    end
+    -- Pose hors plateforme sans carburant : impossible de redecoller, on propose tout de suite de recommencer
+    -- (le message "CARBURANT EPUISE - recommencer" s'affiche) au lieu de laisser le joueur bloque.
+    if ship.resting and fuel <= 0 and not ship.landed then
+        stuckT = stuckT + dt
+        if stuckT > 2.5 and not failed then failMission(I.t("fuel_out")) end
+    else
+        stuckT = 0
     end
 end
 
@@ -635,14 +657,14 @@ local function drawSky()
         local sx = (i*137 + 19) % W
         local sy = (i*71 + 13) % 278
         if i % 4 == 0 then color(73,133,166) else color(39,77,111) end
-        rect(sx, sy, (i%5==0) and 3 or 2, 2)
+        rect(sx, sy, (i%5==0) and 6 or 4, 4)
         if i % 7 == 0 then
-            color(105,197,210); rect(sx-2, sy+1, 7, 1); rect(sx+1, sy-2, 1, 7)
+            color(105,197,210); rect(sx-4, sy+1, 12, 2); rect(sx+1, sy-4, 2, 12)
         end
     end
     for _,st in ipairs(stars) do
         local pulse = math.floor((time*2 + st.phase)*2) % 5
-        if pulse == 0 then color(92,157,190) elseif pulse == 1 then color(140,203,222) else color(193,222,235) end
+        if pulse == 0 then color(110,175,205) elseif pulse == 1 then color(140,203,222) else color(193,222,235) end
         rect(st.x, st.y, st.s, st.s)
     end
 end
@@ -1186,11 +1208,11 @@ local function drawTitle()
         else centered(it.label, y, fonts.f24, {82,229,218}) end
         y = y + 26
     end
-    centered(I.t("hint1"), 402, fonts.f24, {158,184,202})
-    centered(I.t("hint2"), 426, fonts.f24, {158,184,202})
-    centered(I.t("hint3"), 452, fonts.f16, {120,151,170})
+    centered(I.t("hint1"), 398, fonts.f24, {158,184,202})
+    centered(I.t("hint2"), 421, fonts.f24, {158,184,202})
+    centered(I.t("hint3"), 446, fonts.f16, {120,151,170})
     if I.aka then
-        centered("D : TEST STATION FANTOME", 466, fonts.f12, {255,190,79})
+        centered("D : TEST STATION FANTOME", 462, fonts.f12, {255,190,79})
     end
 end
 
@@ -1658,44 +1680,42 @@ function Game.draw()
         local objective = explore.logRead and "RAPPORT COPIE - ACCES AU SAS" or (explore.repaired and "RESEAU RETABLI - RAPPORT A CONSULTER" or ("CIRCUITS AUXILIAIRES  "..tostring(explore.repairs or 0).."/3"))
         centered(objective, 65, fonts.f16, {214,225,230})
         -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
+        -- Tout est en police 16 (8 px reels sur l'AKA) ; 24 caracteres par ligne au maximum.
         local cx, cy, cw, ch = 24, 96, 424, 150
         panel(cx, cy, cw, ch)
         color(43,205,211); rect(cx+10, cy+27, cw-20, 1)
-        love.graphics.setFont(fonts.f12.obj)
+        love.graphics.setFont(fonts.f16.obj)
         color(255,177,78)
-        love.graphics.printf("LUNA  //  SIGNAL INSTABLE", cx+14, cy+7, cw-28, "left")
+        love.graphics.printf("LUNA // SIGNAL INSTABLE", cx+14, cy+7, cw-28, "left")
         local msg
         if toastT > 0 and toast ~= "" then msg = toast
-        elseif explore.logRead then msg = "Rapport copie. Luna confirme la remise en service."
-        elseif explore.repaired then msg = "Reseau retabli. Consultez le rapport de maintenance."
-        elseif (explore.repairs or 0) == 2 then msg = "Deux relais actifs. Encore un relais pour stabiliser le reseau."
-        elseif (explore.repairs or 0) == 1 then msg = "Relais 1 stable. Un circuit auxiliaire etait deja alimente."
+        elseif (explore.repairs or 0) >= 3 then msg = "Terminal accessible : rejoignez la porte blindee a droite."
         else msg = "Reparer les 3 relais, de gauche a droite." end
-        if msg ~= explore.msg or explore.t < (explore.msgT0 or 0) then explore.msg, explore.msgT0 = msg, explore.t end
-        local n = math.floor((explore.t - (explore.msgT0 or 0)) * 48)
-        -- retour a la ligne manuel (24 caracteres de 16 px) : le texte ne bouge pas pendant qu'il s'ecrit
-        local lines, cur = {}, ""
-        for word in msg:gmatch("%S+") do
-            if #cur > 0 and #cur + 1 + #word > 24 then lines[#lines+1] = cur; cur = word
-            else cur = (#cur > 0) and (cur.." "..word) or word end
+        if msg ~= explore.msg or explore.t < (explore.msgT0 or 0) then
+            explore.msg, explore.msgT0 = msg, explore.t
+            -- retour a la ligne manuel (calcule une seule fois par message) : le texte ne bouge pas en s'ecrivant
+            local lines, cur = {}, ""
+            for word in msg:gmatch("%S+") do
+                if #cur > 0 and #cur + 1 + #word > 24 then lines[#lines+1] = cur; cur = word
+                else cur = (#cur > 0) and (cur.." "..word) or word end
+            end
+            if #cur > 0 then lines[#lines+1] = cur end
+            explore.lines = lines
         end
-        if #cur > 0 then lines[#lines+1] = cur end
-        love.graphics.setFont(fonts.f16.obj)
+        local n = math.floor((explore.t - (explore.msgT0 or 0)) * 48)
         color(206,222,230)
         local left = n
-        for i, l in ipairs(lines) do
+        for i, l in ipairs(explore.lines) do
             if left <= 0 then break end
             love.graphics.printf(l:sub(1, left), cx+14, cy+34+(i-1)*21, cw-28, "left")
             left = left - #l - 1
         end
-        love.graphics.setFont(fonts.f12.obj)
         if n < #msg and math.floor(explore.t * 6) % 2 == 0 then
             color(135,239,231); rect(cx+cw-22, cy+ch-34, 8, 3)
         end
         color(255,190,98)
-        local hint = explore.logRead and "E : REJOINDRE LE SAS" or (explore.repaired and "E : LIRE LE RAPPORT  |  ESPACE : SAUTER" or "E : INTERAGIR  |  ESPACE : SAUTER")
-        love.graphics.printf(hint, cx+14, cy+ch-24, cw-28, "left")
-        if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f12, {145,170,184}) end
+        love.graphics.printf(explore.repaired and "ESPACE : JOURNAL" or "E : AGIR  ESPACE : SAUT", cx+14, cy+ch-24, cw-28, "left")
+        if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
@@ -1759,6 +1779,7 @@ local function afterDebrief()
                 explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
                 explore.facing, explore.grounded = 1, true
                 explore.repaired, explore.repairs, explore.logRead, explore.campaign = false, 0, false, true
+                loadExplorerSprites()
                 state = "explore"
             else
                 beginMission(nextI)
@@ -1853,6 +1874,7 @@ function Game.keypressed(key, scancode, isrepeat)
             explore.x, explore.y, explore.vy, explore.t, explore.repaired, explore.repairs, explore.logRead, explore.campaign = 100, 0, 0, 0, false, 0, false, false
             explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
             explore.facing, explore.grounded = 1, true
+            loadExplorerSprites()
             state = "explore"
             Audio.play("menu")
         elseif key == "u" then
@@ -1922,6 +1944,7 @@ function Game.keypressed(key, scancode, isrepeat)
                 toast="RAPPORT VARGA : diagnostic incomplet."
                 toastT=5
             elseif explore.logRead and x>=535 then
+                unloadExplorerSprites()
                 if explore.campaign then
                     explore.campaign = false
                     beginMission(4)
@@ -1936,6 +1959,7 @@ function Game.keypressed(key, scancode, isrepeat)
                 toastT=2.5
             end
         elseif key == "escape" then
+            unloadExplorerSprites()
             state="title"
             buildMenu()
         end
