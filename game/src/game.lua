@@ -1252,15 +1252,18 @@ local function drawStoryEffects(card)
     rect(0, scanY, W, 2)
 
     -- Les moments cles ont un accent visuel distinct, sans masquer le texte.
-    local title = card and card[1] or ""
-    if title == "ALLUMAGE" then
+    local isIgnition = cardMission == 18 and cardKind == "post" and cardIdx == 3
+    local isFarewell = cardMission == 18 and cardKind == "post" and cardIdx == 2
+    local isEpilogue = cardMission == 18 and cardKind == "post" and cardIdx == 5
+    local isFinal = cardMission == 18 and cardKind == "post" and cardIdx == 6
+    if isIgnition then
         local phase = (time * 150) % (W + 180)
         local beamX = math.floor(phase - 90)
         color(255, 190, 79)
         rect(beamX, 18, 5, 86)
         color(112, 230, 226)
         rect(beamX + 5, 18, 2, 86)
-    elseif title == "ADIEU" or title == "EPILOGUE" or title == "FIN" then
+    elseif isFarewell or isEpilogue or isFinal then
         local pulse = math.sin(time * 2.1)
         local cx = 520 + math.floor(pulse * 5)
         color(24, 100, 128)
@@ -1268,7 +1271,7 @@ local function drawStoryEffects(card)
         rect(cx - 3, 27, 6, 17)
         color(82, 226, 218)
         rect(cx - 2, 30, 4, 11)
-        if title == "FIN" then
+        if isFinal then
             color(255, 190, 79)
             rect(70, 142, math.floor((time * 44) % 500), 2)
         end
