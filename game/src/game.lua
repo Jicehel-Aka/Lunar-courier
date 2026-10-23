@@ -276,7 +276,7 @@ function Game.load()
     if os and os.time then math.randomseed(os.time())
     elseif love.timer and love.timer.getTime then math.randomseed(math.floor(love.timer.getTime()*100000))
     else math.randomseed(12345) end
-    fonts.f16, fonts.f24, fonts.f32, fonts.f48 = mkfont(16), mkfont(24), mkfont(32), mkfont(48)
+    fonts.f12, fonts.f16, fonts.f24, fonts.f32, fonts.f48 = mkfont(12), mkfont(16), mkfont(24), mkfont(32), mkfont(48)
     for i = 1, 22 do
         stars[#stars+1] = {x=math.random(0,W), y=math.random(0,330), s=math.random(2,3), phase=math.random()*6.28}
     end
