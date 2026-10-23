@@ -121,6 +121,37 @@ def build(files, mirror=False):
     anchor = float(np.median(cxs))
     return items, s, anchor
 
+OUTLINE = (28, 36, 50)
+
+def clean(px):
+    """Nettoyage final a la taille du jeu : pixels isoles, lueur cyan de la console, liseres clairs du fond."""
+    a = px[..., 3] > 0
+    rgb = px[..., :3].astype(int)
+    # lueur cyan de l'ecran de la console (hors combinaison : tres cyan et clair)
+    glow = a & (rgb[..., 1] > 170) & (rgb[..., 2] > 190) & (rgb[..., 0] < 190) & (rgb[..., 2] - rgb[..., 0] > 40)
+    # (la visiere est bleu fonce : elle n'est pas touchee)
+    a = a & ~glow
+    # une seule zone connexe (8 voisins)
+    lab, n = ndi.label(a, structure=np.ones((3, 3)))
+    if n > 1:
+        sizes = ndi.sum(a, lab, range(1, n + 1))
+        a = lab == (1 + int(np.argmax(sizes)))
+    # pixels trop peu entoures : on les retire (deux passes)
+    for _ in range(2):
+        nb = ndi.convolve(a.astype(int), np.ones((3, 3), int), mode="constant") - a
+        a = a & (nb >= 3)
+    # lisere : pixel de bord clair et peu sature -> couleur de contour sombre
+    er = ndi.binary_erosion(a, structure=np.ones((3, 3)), border_value=0)
+    edge = a & ~er
+    lum = rgb.sum(axis=2) / 3
+    sat = rgb.max(axis=2) - rgb.min(axis=2)
+    fringe = edge & (lum > 150) & (sat < 45)
+    out = px.copy()
+    out[fringe, :3] = OUTLINE
+    out[..., 3] = np.where(a, 255, 0)
+    out[~a, :3] = 0
+    return out
+
 def render(items, s, anchor, can_w):
     out = []
     for rgb, m, (x0, y0, x1, y1) in items:
@@ -137,7 +168,7 @@ def render(items, s, anchor, can_w):
         a_hard = (a > 110) * 255.0         # pas d'alpha doux : bord net pour le runtime AKA
         arr[..., 3:] = a_hard
         arr[..., :3] = np.clip(arr[..., :3], 0, 255)
-        small = Image.fromarray(arr.astype(np.uint8), "RGBA")
+        small = Image.fromarray(clean(arr.astype(np.uint8)), "RGBA")
         canvas = Image.new("RGBA", (can_w, CAN_H), (0, 0, 0, 0))
         # centre horizontal : barycentre de l'ensemble (evite le tremblement du cycle de marche)
         ys, xs = np.where(m)

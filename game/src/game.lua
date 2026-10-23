@@ -1555,7 +1555,7 @@ function Game.draw()
         local interacting=(explore.interactT or 0)>0
         local armReach=interacting and (1-(explore.interactT or 0)/0.62) or 0
         local baseY=410+py-bob+(landing and (1-(explore.landT or 0)/0.18)*3 or 0)
-        -- Ombre compacte et aplatie : plus de grand rectangle noir derrière le corps.
+        -- Ombre compacte et aplatie : plus de grand rectangle noir derriere le corps.
         color(2,7,14); rect(px-12,453,24,3); rect(px-8,451,16,2)
         -- Sac dorsal, visible sur le cote oppose au sens de marche.
         color(25,45,64); rect(px-facing*11,414+py-bob,8,19)
@@ -1571,7 +1571,7 @@ function Game.draw()
         rect(px-9+legA,446+py-bob,9,4); rect(px+1+legB,446+py-bob,9,4)
         color(33,54,73); rect(px-10,408+py-bob,20,27)
         color(116,145,164); rect(px-9,410+py-bob,18,3)
-        -- Epaules et bras articulés ; le bras avant se tend réellement vers la console.
+        -- Epaules et bras articules ; le bras avant se tend reellement vers la console.
         color(52,76,94)
         if interacting then
             local handX=px+facing*(10+armReach*13)
@@ -1586,7 +1586,7 @@ function Game.draw()
             love.graphics.polygon("fill",px+facing*7,413+py-bob,px+facing*11,416+py-bob,px+facing*(12-armSwing),428+py-bob,px+facing*(7-armSwing),430+py-bob)
             color(183,199,208); rect(px-facing*(11+armSwing),428+py-bob,5,4); rect(px+facing*(10-armSwing),427+py-bob,5,4)
         end
-        -- Casque et visière.
+        -- Casque et visiere.
         color(226,232,226); rect(px-9,390+py-bob,18,20)
         color(121,151,167); rect(px-12,392+py-bob,24,15)
         color(207,218,220); rect(px-10,387+py-bob,20,18)
