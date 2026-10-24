@@ -607,6 +607,11 @@ for mi in range(1, nm+1):
             print("expected signal mini-game after M%d, got" % mi, d['state']); FAILED.append("signal missing M%d" % mi)
         else:
             run_signal(mi); d = dbg()
+    elif mi in (15, 17):
+        if d['state'] != 'signal':
+            print("expected signal mini-game after M%d, got" % mi, d['state']); FAILED.append("signal missing M%d" % mi)
+        else:
+            run_signal(mi); d = dbg()
     # entering next mission: pre cards counted inside 'seen'
     print(f"M{mi:02d}: attempts={results[mi][0]} fuel={results[mi][1]} hull={results[mi][2]} t={results[mi][3]}s | debrief={st_deb} cards_shown={seen} -> state={d['state']} mi={d['mi']}")
     if d['state']=='card':
