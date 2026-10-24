@@ -52,14 +52,19 @@ local windCur = 0
 local fonts = {}
 -- Sprites optionnels de l'explorateur. Sans fichiers propres, le rendu procedural reste actif.
 local explorerSprites = {}
+local spriteQueue, spriteQi = {}, 1
 local function unloadExplorerSprites()
     -- Les 34 images (~165 Ko decodees) ne restent en memoire que pendant la station.
+    spriteQueue, spriteQi = {}, 1
     if next(explorerSprites) == nil then return end
     explorerSprites = {}
     collectgarbage("collect")
 end
+-- Chargement progressif : 34 PNG lus d un coup depassent le delai du chien de garde AKA (4 s sans image
+-- affichee). On prepare la liste, puis spriteStep() en charge quelques-uns par image.
 local function loadExplorerSprites()
     explorerSprites = {}
+    spriteQueue, spriteQi = {}, 1
     if not (love and love.graphics and love.graphics.newImage) then return end
     local names = {
         idle = {"idle_01"},
@@ -73,12 +78,18 @@ local function loadExplorerSprites()
     }
     for group, files in pairs(names) do
         explorerSprites[group] = {}
-        for i, name in ipairs(files) do
-            local ok, img = pcall(love.graphics.newImage, "assets/sprites/"..name..".png")
-            if ok and img then
-                if img.setFilter then pcall(img.setFilter, img, "nearest", "nearest") end
-                explorerSprites[group][i] = img
-            end
+        for i, name in ipairs(files) do spriteQueue[#spriteQueue+1] = {group, i, name} end
+    end
+end
+local function spriteStep(n)
+    for _ = 1, n do
+        local q = spriteQueue[spriteQi]
+        if not q then return end
+        spriteQi = spriteQi + 1
+        local ok, img = pcall(love.graphics.newImage, "assets/sprites/"..q[3]..".png")
+        if ok and img and explorerSprites[q[1]] then
+            if img.setFilter then pcall(img.setFilter, img, "nearest", "nearest") end
+            explorerSprites[q[1]][q[2]] = img
         end
     end
 end
@@ -1271,7 +1282,7 @@ local function drawTitle()
 
     -- Menu compact, puis commandes reparties sur plusieurs lignes pour l AKA.
     color(39,88,110); rect(92, 280, 456, 2)
-    local y = 288
+    local y = I.aka and 292 or 288   -- AKA : menu descendu de 2 px AKA (4 virtuels)
     for i,it in ipairs(menu) do
         if i == menuSel then
             color(255,190,79); rect(170, y+10, 18, 2); rect(452, y+10, 18, 2)
@@ -1280,7 +1291,7 @@ local function drawTitle()
         y = y + 26
     end
     centered(I.t("hint1"), 390, fonts.f24, {158,184,202})
-    centered(I.t("hint2"), 413, fit(I.t("hint2"), 620, {fonts.f24, fonts.f16}), {158,184,202})
+    centered(I.t("hint2"), I.aka and 417 or 413, fit(I.t("hint2"), 620, {fonts.f24, fonts.f16}), {158,184,202})
     if I.aka then
         centered("D : TEST STATION FANTOME", 462, fonts.f12, {255,190,79})
     end
@@ -1474,7 +1485,7 @@ local function sysItems()
     it[#it+1] = {id="lang",     label=I.t("m_lang", I.langNames[I.lang])}
     if #I.kbList() > 1 then it[#it+1] = {id="kb", label=I.t("m_kb", I.kbLabel())} end
     it[#it+1] = {id="music",    label=I.t("m_music", I.onoff(Audio.musicOn))}
-    it[#it+1] = {id="perf",     label=I.t("m_perf", I.onoff(Perf.on))}
+    it[#it+1] = {id="perf",     label=I.t("m_perf", Perf.label())}
     if state == "game" or state == "debrief" then it[#it+1] = {id="restart", label=I.t("m_restart")} end
     if love.graphics and love.graphics.captureScreenshot then it[#it+1] = {id="shot", label=I.t("m_shot")} end
     it[#it+1] = {id="credits",  label=I.t("m_credits")}
@@ -1851,7 +1862,7 @@ local function sysAct(id)
     elseif id == "lang" then I.nextLang(); buildMenu(); saveSettings()
     elseif id == "kb" then I.nextKb(); saveSettings()
     elseif id == "music" then toggleMusic()
-    elseif id == "perf" then Perf.set(not Perf.on)
+    elseif id == "perf" then Perf.cycle()
     elseif id == "restart" then closeSys(); state = "game"; resetMission()
     elseif id == "shot" then closeSys(); shotPending = 2
     elseif id == "title" then closeSys(); Audio.thrust(false); backToTitle()
@@ -2016,7 +2027,7 @@ end
 
 -- Mesure de performance (menu PERF) : enveloppes minces, aucun cout quand PERF est coupe.
 local rawUpdate, rawDraw = Game.update, Game.draw
-function Game.update(dt) Perf.updBegin(); rawUpdate(dt); Perf.updEnd(dt) end
+function Game.update(dt) Perf.updBegin(); spriteStep(3); rawUpdate(dt); Perf.updEnd(dt) end
 function Game.draw()
     Perf.drawBegin(); rawDraw()
     if Perf.on then Perf.drawEnd(state == "explore" and (explore.site == "comms" and "comms" or "station") or state, fonts.f16.obj) end
