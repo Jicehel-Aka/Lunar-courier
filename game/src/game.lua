@@ -1278,9 +1278,8 @@ local function drawTitle()
         else centered(it.label, y, fonts.f24, {82,229,218}) end
         y = y + 26
     end
-    centered(I.t("hint1"), 398, fonts.f24, {158,184,202})
-    centered(I.t("hint2"), 421, fonts.f24, {158,184,202})
-    centered(I.t("hint3"), 446, fonts.f16, {120,151,170})
+    centered(I.t("hint1"), 386, fonts.f24, {158,184,202})
+    centered(I.t("hint2"), 409, fit(I.t("hint2"), 620, {fonts.f24, fonts.f16}), {158,184,202})
     if I.aka then
         centered("D : TEST STATION FANTOME", 462, fonts.f12, {255,190,79})
     end
@@ -1294,7 +1293,7 @@ local function drawHelp(promptKey)
     local k = (I.kb == "qwertz") and "qwerty" or I.kb
     local rows = {
         {I.t("help_turn_"..k), white}, {I.t("help_thrust_"..k), white},
-        {I.t("help_ok"), white}, {I.t("help_restart"), white}, {I.t("help_music"), white},
+        {I.t("help_ok"), white}, {I.t("help_restart"), white}, {I.t("help_walk"), white}, {I.t("help_music"), white},
         {I.t("help_mission"), amber},
         {I.t("help_m1"), white}, {I.t("help_m2"), white}, {I.t("help_m3"), white},
         {I.t("help_m4"), white}, {I.t("help_m5"), white}, {I.t("help_m6"), white},
@@ -1302,7 +1301,7 @@ local function drawHelp(promptKey)
     local y = 96
     for _,r in ipairs(rows) do
         centered(r[1], y, fonts.f16, r[2])
-        y = y + 24
+        y = y + 23
     end
     local pr = I.t(promptKey)
     centered(pr, 400, fit(pr, 600, {fonts.f24, fonts.f16}), {65,226,219})
@@ -1311,10 +1310,12 @@ end
 local function drawCredits()
     panel(120, 70, 400, 340)
     centered(I.t("credits_title"), 86, fonts.f32, {235,244,248})
-    centered(I.t("credits_1"), 150, fonts.f32, {255,188,83})
-    centered(I.t("credits_2"), 214, fonts.f24, {198,216,227})
-    centered(I.t("credits_3"), 250, fonts.f24, {198,216,227})
-    centered(I.t("credits_4"), 280, fonts.f24, {198,216,227})
+    centered(I.t("credits_1"), 150, fit(I.t("credits_1"), 370, {fonts.f32, fonts.f24, fonts.f16}), {255,188,83})
+    local cw = math.max(#I.t("credits_2"), #I.t("credits_3"), #I.t("credits_4"))
+    local cf = fit(string.rep("x", cw), 370, {fonts.f24, fonts.f16})
+    centered(I.t("credits_2"), 214, cf, {198,216,227})
+    centered(I.t("credits_3"), 250, cf, {198,216,227})
+    centered(I.t("credits_4"), 280, cf, {198,216,227})
     centered(I.t("credits_5"), 336, fonts.f16, {82,226,218})
     centered(I.t("menu_foot"), 372, fonts.f16, {120,151,170})
 end
@@ -1457,7 +1458,7 @@ local function drawCard()
     drawLines(vis, 70, 174, 500, fonts.f16, cols, 20)
     if shown >= #c[2] then
         local prompt = (cardIdx == #list) and I.t(cardLastKey) or I.t("card_next")
-        centered(prompt, 436, fonts.f16, {255,190,81})
+        centered(prompt, 432, fonts.f16, {255,190,81})
     end
     centered(cardIdx.."/"..#list, 454, fonts.f16, {90,110,130})
 end
@@ -1470,9 +1471,10 @@ local function sysItems()
     it[#it+1] = {id="resume",   label=I.t("m_resume")}
     it[#it+1] = {id="controls", label=I.t("m_controls")}
     it[#it+1] = {id="lang",     label=I.t("m_lang", I.langNames[I.lang])}
-    it[#it+1] = {id="kb",       label=I.t("m_kb", I.kbLabel())}
+    if #I.kbList() > 1 then it[#it+1] = {id="kb", label=I.t("m_kb", I.kbLabel())} end
     it[#it+1] = {id="music",    label=I.t("m_music", I.onoff(Audio.musicOn))}
-    it[#it+1] = {id="shot",     label=I.t("m_shot")}
+    if state == "game" or state == "debrief" then it[#it+1] = {id="restart", label=I.t("m_restart")} end
+    if love.graphics and love.graphics.captureScreenshot then it[#it+1] = {id="shot", label=I.t("m_shot")} end
     it[#it+1] = {id="credits",  label=I.t("m_credits")}
     if state ~= "title" then it[#it+1] = {id="title", label=I.t("m_totitle")} end
     it[#it+1] = {id="quit",     label=I.t(I.aka and "m_quit_aka" or "m_quit_pc")}
@@ -1500,9 +1502,7 @@ local function drawSysMenu()
 end
 
 local function takeShot()
-    if not (love.graphics and love.graphics.captureScreenshot) then
-        setToast(I.t("shot_na"), 3); return
-    end
+    if not (love.graphics and love.graphics.captureScreenshot) then return end   -- AKA-Love : pas de capture
     local name = string.format("lunar_%04d.png", Save.shot + 1)
     local ok = pcall(love.graphics.captureScreenshot, name)
     if ok then
@@ -1516,7 +1516,7 @@ end
 
 local function drawToast()
     if toastT <= 0 or toast == "" or state == "explore" then return end   -- en station, les messages vont sur la console de LUNA
-    local w = math.min(560, #toast * 16 + 40)
+    local w = math.min(620, #toast * 16 + 40)
     panel(W/2 - w/2, 74, w, 36)
     centered(toast, 83, fonts.f16, {236,245,248})
 end
@@ -1527,20 +1527,19 @@ local function drawOverlays()
         centered(I.t("pause"), 166, fonts.f32, {236,244,248})
         centered(I.t("pause_resume"), 222, fonts.f16, {82,226,218})
         centered(I.t("pause_menu"), 248, fonts.f16, {82,226,218})
-        centered(I.t("pause_music", I.onoff(Audio.musicOn)), 274, fonts.f16, {82,226,218})
     elseif state == "debrief" then
         local t = I.mission(missionIndex)
         panel(95, 100, 450, 290)
         centered(I.t("debrief_title"), 116, fonts.f24, {76,233,216})
         local f = fit(t.name, 420, {fonts.f24, fonts.f16})
         centered(t.name, 152, f, {255,190,81})
-        centered(I.t("fuel", math.floor(fuel)), 202, fonts.f16, {198,216,227})
-        centered(I.t("hull", math.floor(hull)), 228, fonts.f16, {198,216,227})
-        centered(I.t("time", string.format("%d:%02d", math.floor(missionTime/60), math.floor(missionTime%60))), 254, fonts.f16, {198,216,227})
+        centered(I.t("fuel", math.floor(fuel)), 196, fonts.f16, {198,216,227})
+        centered(I.t("hull", math.floor(hull)), 222, fonts.f16, {198,216,227})
+        centered(I.t("time", string.format("%d:%02d", math.floor(missionTime/60), math.floor(missionTime%60))), 248, fonts.f16, {198,216,227})
         local best = tonumber(Save.ranks:sub(missionIndex, missionIndex)) or lastRank
-        centered(I.t("rank", RANKS[lastRank]), 282, fonts.f24, {255,190,81})
-        centered(I.t("rank_best", RANKS[math.max(1, best)]), 314, fonts.f16, {145,229,231})
-        if Save.ok then centered(I.t("saved"), 340, fonts.f16, {120,200,120}) end
+        centered(I.t("rank", RANKS[lastRank]), 276, fonts.f24, {255,190,81})
+        centered(I.t("rank_best", RANKS[math.max(1, best)]), 308, fonts.f16, {145,229,231})
+        if Save.ok then centered(I.t("saved"), 334, fonts.f16, {120,200,120}) end
         centered(I.t("card_next"), 356, fonts.f16, {78,227,218})
     end
 end
@@ -1667,11 +1666,11 @@ function Game.draw()
         color(95,222,212); rect(px-8,420+py-bob,16,3)
         end
         -- HUD diegetique
-        panel(22,20,596,64)
-        color(79,221,213); rect(36,34,4,34)
+        panel(22,20,596,68)
+        color(79,221,213); rect(36,34,4,36)
         centered(explore.site == "comms" and (Communications.title().."  "..Communications.s.room.."/3") or ("STATION ARGO  "..Station.s.room.."/"..Station.ROOMS), 34, explore.site == "comms" and fonts.f16 or fonts.f24, {135,239,231})
         local objective = explore.site == "comms" and Communications.objective() or Station.objective()
-        centered(objective, 65, fonts.f16, {214,225,230})
+        centered(objective, 63, fonts.f16, {214,225,230})
         -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
         -- Tout est en police 16 (8 px reels sur l'AKA) ; 24 caracteres par ligne au maximum.
         local cx, cy, cw, ch = 24, 96, 424, 150
@@ -1708,10 +1707,10 @@ function Game.draw()
             color(135,239,231); rect(cx+cw-22, cy+ch-34, 8, 3)
         end
         color(255,190,98)
-        love.graphics.printf(explore.site == "comms" and Communications.actionHint() or "E : AGIR  ESPACE : SAUT", cx+14, cy+ch-24, cw-28, "left")
+        love.graphics.printf(Communications.actionHint(), cx+14, cy+ch-24, cw-28, "left")
         end
         if explore.site ~= "comms" then Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj}) end
-        if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
+        if not I.aka then centered(I.t("explore_foot"), 463, fonts.f8, {145,170,184}) end
     elseif state == "reactor" then
         Reactor.draw({color=color, rect=rect, panel=panel, centered=centered, f8=fonts.f8, f16=fonts.f16, f24=fonts.f24, aka=I.aka}, explorerSprites)
     elseif state == "disembark" then
@@ -1846,6 +1845,7 @@ local function sysAct(id)
     elseif id == "lang" then I.nextLang(); buildMenu(); saveSettings()
     elseif id == "kb" then I.nextKb(); saveSettings()
     elseif id == "music" then toggleMusic()
+    elseif id == "restart" then closeSys(); state = "game"; resetMission()
     elseif id == "shot" then closeSys(); shotPending = 2
     elseif id == "title" then closeSys(); Audio.thrust(false); backToTitle()
     elseif id == "quit" then
@@ -1881,14 +1881,10 @@ function Game.keypressed(key, scancode, isrepeat)
         return
     end
     if sysOpen then sysKey(key); return end
-    if key == "x" or key == "m" then toggleMusic(); return end
-    if (key == "p" or key == "c") and state == "game" then
-        paused = not paused
-        Audio.thrust(false)
+    -- Pause (perte de focus) : A reprend. Musique, pause et recommencer sont dans le menu (MENU).
+    if paused and state == "game" then
+        if confirm(key) then paused = false end
         return
-    end
-    if (key == "r" or key == "v") and (state == "game" or state == "debrief") then
-        state = "game"; resetMission(); return
     end
 
     if state == "title" then
@@ -1926,7 +1922,9 @@ function Game.keypressed(key, scancode, isrepeat)
             end
         end
     elseif state == "game" then
-        if ship.landed and confirm(key) then
+        if failed and confirm(key) and not isrepeat then
+            resetMission()
+        elseif ship.landed and confirm(key) then
             local pts = fuel * 0.5 + hull * 0.5
             lastRank = (pts >= 85 and 4) or (pts >= 70 and 3) or (pts >= 50 and 2) or 1
             local old = tonumber(Save.ranks:sub(missionIndex, missionIndex)) or 0
@@ -1950,12 +1948,12 @@ function Game.keypressed(key, scancode, isrepeat)
             end
             return
         end
-        if key == "space" and not isrepeat and explore.grounded and explore.y == 0 and (explore.vy or 0)==0 then
+        if key == "x" and not isrepeat and explore.grounded and explore.y == 0 and (explore.vy or 0)==0 then
             explore.vy = -205
             explore.grounded = false
             explore.walkT = 0
             Audio.play("menu")
-        elseif (key == "e" or key == "a") and not isrepeat then
+        elseif (confirm(key) or key == "e" or key == "a") and not isrepeat then
             explore.interactT = 0.62
             local m, ev
             if explore.site == "comms" then m, ev = Communications.interact(explore.x)

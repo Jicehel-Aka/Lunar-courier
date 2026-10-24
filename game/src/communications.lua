@@ -6,7 +6,7 @@ local I = require("src.i18n")
 local TX = require("src.communications_text")
 local function T(k)
   local t = TX[I.lang] or TX.fr
-  return t[k] or TX.fr[k] or ""
+  return I.expand(t[k] or TX.fr[k] or "")
 end
 local function say(s, d) st.msg, st.msgD = s, d or 4 end
 function C.reset()
@@ -45,14 +45,14 @@ function C.update(dt, ex)
   end
 end
 function C.title() return T("header") end
-function C.actionHint() return I.aka and T("actionsAKA") or T("actions") end
+function C.actionHint() return I.t("explore_keys") end
 function C.objective()
   if st.room==1 then return st.doors[1] and T("obj1done") or T("obj1")
   elseif st.room==2 then return st.repaired and T("obj2done") or T("obj2")
   else return st.aligned and T("obj3done") or T("obj3") end
 end
 function C.hint()
-  if st.room==1 then return st.doors[1] and T("hint1done") or (I.aka and T("hint1aka") or T("hint1"))
+  if st.room==1 then return st.doors[1] and T("hint1done") or T("hint1")
   elseif st.room==2 then return st.repaired and T("hint2done") or T("hint2")
   else return st.repaired and T("hint3done") or T("hint3") end
 end

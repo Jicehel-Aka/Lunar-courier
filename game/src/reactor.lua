@@ -27,7 +27,7 @@ function R.keypressed(key,isrepeat)
             if st.phase[1]==TARGET[1] and st.phase[2]==TARGET[2] and st.phase[3]==TARGET[3] then
                 st.solved=true; st.console=false; st.message="PHASE VERROUILLEE. DEMARRAGE DU REACTEUR..."; st.msgT=4; st.doneT=0
             else say("DESACCORD DE PHASE. Ajustez les bobines selon les indicateurs.",3.5); st.flash=0.6 end
-        elseif key=="escape" then st.console=false; say("Console en veille. Reprenez le reglage quand vous etes pret.",3) end
+        elseif key=="escape" or key=="x" then st.console=false; say("Console en veille. Reprenez le reglage quand vous etes pret.",3) end
         return
     end
     if key=="left" or key=="q" then st.x=math.max(42,st.x-34); st.facing=-1
@@ -36,7 +36,7 @@ function R.keypressed(key,isrepeat)
         if not st.inserted and math.abs(st.x-286)<58 then
             st.inserted=true; say("MODULE INSERE. Les conduites s'allument, mais le coeur refuse de demarrer.",5)
         elseif not st.inserted then say("Le logement du module est au centre de la salle. Approchez-vous.",3)
-        elseif math.abs(st.x-520)<72 then st.console=true; st.selected=1; say("Q/D : choisir une bobine. Z/S : regler la phase. E : valider.",5)
+        elseif math.abs(st.x-520)<72 then st.console=true; st.selected=1; say("GAUCHE/DROITE : bobine. HAUT/BAS : phase. "..require("src.i18n").keyName("A").." : valider. "..require("src.i18n").keyName("B").." : quitter.",5)
         else say("Le module est en place. La console de commandement est a droite.",3) end
     end
 end
@@ -94,6 +94,6 @@ function R.draw(ui, sprites)
         ui.panel(54,376,532,14+n*20)
         for i=1,n do ui.centered(lines[i],386+(i-1)*20,ui.f16,{222,235,240}) end
     end
-    if not ui.aka then ui.centered("AZERTY : Q/D ou fleches - E : agir - ECHAP : fermer",463,ui.f8,{151,177,190}) end
+    if not ui.aka then ui.centered(require("src.i18n").t("explore_foot"),463,ui.f8,{151,177,190}) end
 end
 return R

@@ -23,7 +23,13 @@ def env(n, a=0.005, r=0.1):
 def lowpass(x, k):
     c = np.cumsum(np.insert(x, 0, 0)); y = (c[k:] - c[:-k]) / k
     return np.concatenate([np.full(k-1, y[0]), y])
+# Niveaux : le melangeur de l'AKA additionne les pistes (musique + propulseur + effet) sans garantie que
+# setVolume soit applique : la somme des cretes doit rester sous 32767, sinon l'ecrêtage crepite.
+# Pire cas : musique 0.23 + propulseur 0.18 + effet 0.36 = 0.77 < 1.
+LEVEL_MUSIC, LEVEL_THRUST, LEVEL_SFX = 0.33, 0.33, 0.40
 def write(path, x, gain=0.8):
+    base = os.path.basename(path)
+    gain *= LEVEL_MUSIC if os.path.dirname(os.path.abspath(path)) == os.path.abspath(MUS) else (LEVEL_THRUST if base == "thrust.wav" else LEVEL_SFX)
     x = np.clip(x / (np.max(np.abs(x)) + 1e-9) * gain, -1, 1)
     with wave.open(path, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
