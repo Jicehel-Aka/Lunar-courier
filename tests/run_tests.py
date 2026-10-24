@@ -49,7 +49,7 @@ function love.graphics.rectangle(mode,x,y,w,h) PRIM = PRIM + 1 chk("rectangle",s
   if raw > 10 * SCREEN then viol("GIANT rectangle (" .. math.floor(raw / SCREEN) .. " ecrans avant rognage)") end
   local cl = clipped(x0, y0, x1, y1)
   FILL = FILL + cl
-  if FPROF then
+  if FPROF and FPROF_STATE then
     local k = ""
     for lv = 2, 5 do local i = debug.getinfo(lv, "Sl"); if i then k = k .. (i.short_src:match("[^/]*$") or "?") .. ":" .. i.currentline .. " < " end end
     local st = FPROF_STATE or "?"
@@ -215,7 +215,7 @@ FILLPROF = bool(os.environ.get('FILLPROF'))
 def step(n=1, dt=1/30):
     for _ in range(n):
         if FILLPROF:
-            lua.execute('FPROF = FPROF or {}; FPROF_STATE = require("src.game")._dbg().state')
+            lua.execute('FPROF = FPROF or {}; FPROF_STATE = require("src.game")._dbg().state; FPROF_N = FPROF_N or {}; FPROF_N[FPROF_STATE] = (FPROF_N[FPROF_STATE] or 0) + 1; if FPROF_N[FPROF_STATE] > 800 then FPROF_STATE = nil end')
         lua.execute(f"PRIM=0; FILL=0; love.update({dt}); love.draw()")
         c = int(lua.eval('PRIM')); fl = float(lua.eval('FILL'))
         if dbg_state_game(): PERF['max']=max(PERF['max'],c); PERF['sum']+=c; PERF['n']+=1
