@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : La red converge en el Corazon. El modulo que llevas debe entregarse alli: su codigo es el unico que abre la esclusa.\n\nLUNA : La baliza esta en una meseta. Sube y aterriza bien nivelado."},
   },
   post={
-   {"TRANSMISION RECIBIDA", "El modulo encaja a la perfeccion. El reactor reconoce el codigo del paquete: esperaba esta entrega desde hace anos.\n\nLUNA : Extrano. Reconoci la secuencia del codigo antes de que la esclusa la pidiera."},
+   {"TRANSMISION RECIBIDA", "La esclusa acepta el modulo, pero el reactor sigue mudo. Los planos indican un hueco central y una consola de mando.\n\nLUNA : El codigo me es familiar. Pero la fase de arranque... no entiendo por que."},
   },
   radio={}},
 -- M6

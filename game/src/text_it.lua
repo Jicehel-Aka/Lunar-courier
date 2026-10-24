@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : La rete converge sul Cuore. Il modulo che porti va consegnato la': il suo codice e' l'unico che apre il portello.\n\nLUNA : Il faro e' su un altopiano. Sali e atterra ben livellato."},
   },
   post={
-   {"TRASMISSIONE RICEVUTA", "Il modulo si incastra alla perfezione. Il reattore riconosce il codice del pacco: aspettava questa consegna da anni.\n\nLUNA : Strano. Ho riconosciuto la sequenza del codice prima che il portello la chiedesse."},
+   {"TRASMISSIONE RICEVUTA", "Il portello accetta il modulo, ma il reattore resta muto. Le planimetrie indicano un alloggio centrale e una console di comando.\n\nLUNA : Il codice mi e familiare. Ma la fase di avvio... non capisco perche."},
   },
   radio={}},
 -- M6

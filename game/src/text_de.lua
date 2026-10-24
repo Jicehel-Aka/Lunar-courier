@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : Das Netz laeuft im Herz zusammen. Das Modul, das du traegst, muss dort abgeliefert werden: Sein Code oeffnet als einziger die Schleuse.\n\nLUNA : Die Bake steht auf einem Plateau. Steig auf und lande schoen waagerecht."},
   },
   post={
-   {"NACHRICHT EMPFANGEN", "Das Modul passt perfekt. Der Reaktor erkennt den Paketcode: Er wartet seit Jahren auf diese Lieferung.\n\nLUNA : Seltsam. Ich kannte die Codefolge, bevor die Schleuse danach fragte."},
+   {"NACHRICHT EMPFANGEN", "Die Schleuse nimmt das Modul an, doch der Reaktor bleibt stumm. Die Plaene zeigen einen zentralen Schacht und eine Kommandokonsole.\n\nLUNA : Der Code kommt mir bekannt vor. Aber die Startphase... ich verstehe nicht, warum."},
   },
   radio={}},
 -- M6

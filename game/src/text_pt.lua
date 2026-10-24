@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : A rede converge para o Coracao. O modulo que voce leva deve ser entregue la: seu codigo e o unico que abre a eclusa.\n\nLUNA : O farol esta num planalto. Suba e pouse bem nivelado."},
   },
   post={
-   {"TRANSMISSAO RECEBIDA", "O modulo se encaixa perfeitamente. O reator reconhece o codigo do pacote: esperava essa entrega ha anos.\n\nLUNA : Estranho. Reconheci a sequencia do codigo antes mesmo de a eclusa pedir."},
+   {"TRANSMISSAO RECEBIDA", "A eclusa aceita o modulo, mas o reator continua mudo. As plantas indicam um encaixe central e um console de comando.\n\nLUNA : O codigo me e familiar. Mas a fase de partida... nao entendo por que."},
   },
   radio={}},
 -- M6

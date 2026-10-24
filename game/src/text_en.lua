@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : The network converges on the Heart. The module you carry must be delivered there: its code is the only one that opens the airlock.\n\nLUNA : The beacon is on a plateau. Climb, then land nice and level."},
   },
   post={
-   {"INCOMING TRANSMISSION", "The module fits perfectly. The reactor recognises the package code: it has waited for this delivery for years.\n\nLUNA : Strange. I recognised the code sequence before the airlock even asked for it."},
+   {"INCOMING TRANSMISSION", "The airlock accepts the module, but the reactor stays silent. The plans show a central slot and a command console.\n\nLUNA : The code feels familiar. But the start-up phase... I do not understand why."},
   },
   radio={}},
 -- M6
