@@ -63,20 +63,20 @@ return {
 -- M7
  {name="ALEM DO HORIZONTE", objective="Acorde o farol Beta",
   pre={
-   {"O LADO OCULTO", "CAPITULO 2\n\nA estrada de luz segue para o lado que a Terra nunca ve. LUNA avisa: sem radio la fora. Apenas os farois vao guia-lo."},
-   {"BRIEFING", "LUNA : Em poucos minutos a Terra afundara no horizonte. Quando sumir, perco o contato.\n\nLUNA : Calma: o farol Beta sera nosso proximo farol-guia. Pegue a capsula e pouse."},
+   {"O LADO OCULTO", "CAPITULO 2\n\nA estrada de luz segue para o lado que a Terra nunca ve. La fora nao ha ligacao com a Terra. So os farois e a voz de LUNA, a bordo."},
+   {"BRIEFING", "LUNA : Em poucos minutos a Terra afundara no horizonte. Quando sumir, perco o contato com o Controle. Nao com voce: vivo nesta nave, piloto.\n\nLUNA : Calma: o farol Beta sera nosso proximo farol-guia. Pegue a capsula e pouse."},
   },
   post={
    {"TRANSMISSAO RECEBIDA", "Beta responde com uma assinatura: I. VARGA, comandante da estacao Argo. Entao a voz da mensagem nao era uma IA. Alguem construiu esta rede sabendo que outro piloto viria.\n\nLUNA : Ines Varga... O nome esta nos meus arquivos."},
   },
-  radio={"LUNA : A Terra afunda no horizonte... contato perdido."}},
+  radio={"LUNA : Terra abaixo do horizonte. Contato com a Terra perdido."}},
 -- M8
  {name="SILENCIO DE RADIO", objective="Retransmita o sinal",
   pre={
-   {"BRIEFING", "LUNA : Silencio total de radio. Minhas leituras de velocidade ficarao instaveis as vezes, piloto: confie nos seus olhos.\n\nLUNA : Um vento de poeira sopra do norte. Ele empurra a nave: compense inclinando."},
+   {"BRIEFING", "LUNA : Sem voz da Terra: so falo com voce de dentro da nave. Minhas leituras de velocidade ficarao instaveis as vezes, piloto: confie nos seus olhos.\n\nLUNA : Um vento de poeira sopra do norte. Ele empurra a nave: compense inclinando."},
   },
   post={
-   {"TRANSMISSAO RECEBIDA", "Sem contato com a Terra, LUNA capta uma gravacao de Varga: 'Aqui as ondas de radio nao viajam. Entao construi uma estrada de luz.'\n\nLUNA : Os farois sao as palavras dela, acesas uma a uma. Ela escreveu isso para alguem que nunca conheceu. Para voce."},
+   {"TRANSMISSAO RECEBIDA", "Sem contato com a Terra, LUNA capta, pelos farois, uma gravacao de Varga: 'Aqui as ondas de radio nao viajam. Entao construi uma estrada de luz.'\n\nLUNA : Os farois sao as palavras dela, acesas uma a uma. Ela escreveu isso para alguem que nunca conheceu. Para voce."},
   },
   radio={"LUNA : Leituras confusas. Confie nos seus olhos.", "LUNA : O vento cai as vezes. Aproveite as calmarias."}},
 -- M9

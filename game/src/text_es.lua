@@ -63,20 +63,20 @@ return {
 -- M7
  {name="MAS ALLA DEL HORIZ.", objective="Despierta la baliza Beta",
   pre={
-   {"LA CARA OCULTA", "CAPITULO 2\n\nEl camino de luz va hacia la cara que la Tierra nunca ve. LUNA avisa: sin radio ahi fuera. Solo las balizas te guiaran."},
-   {"BRIEFING", "LUNA : En unos minutos la Tierra se hundira bajo el horizonte. Cuando desaparezca, perdere el enlace.\n\nLUNA : Calma: la baliza Beta sera nuestro proximo faro. Coge la capsula y aterriza."},
+   {"LA CARA OCULTA", "CAPITULO 2\n\nEl camino de luz va hacia la cara que la Tierra nunca ve. Ahi fuera no hay enlace con la Tierra. Solo las balizas y la voz de LUNA, a bordo."},
+   {"BRIEFING", "LUNA : En unos minutos la Tierra se hundira bajo el horizonte. Cuando desaparezca, perdere el enlace con el Control. No contigo: vivo en esta nave, piloto.\n\nLUNA : Calma: la baliza Beta sera nuestro proximo faro. Coge la capsula y aterriza."},
   },
   post={
    {"TRANSMISION RECIBIDA", "Beta responde con una firma: I. VARGA, comandante de la estacion Argo. Asi que la voz del mensaje no era una IA. Alguien construyo esta red sabiendo que vendria otro piloto.\n\nLUNA : Ines Varga... El nombre esta en mis archivos."},
   },
-  radio={"LUNA : La Tierra se hunde en el horizonte... enlace perdido."}},
+  radio={"LUNA : Tierra bajo el horizonte. Enlace con la Tierra perdido."}},
 -- M8
  {name="SILENCIO DE RADIO", objective="Retransmite la senal",
   pre={
-   {"BRIEFING", "LUNA : Silencio de radio total. Mis lecturas de velocidad seran a veces inestables, piloto: fiate de tus ojos.\n\nLUNA : Sopla un viento de polvo del norte. Empujara la nave: compensa inclinandote."},
+   {"BRIEFING", "LUNA : Ya no hay voz de la Tierra: solo te hablo desde la nave. Mis lecturas de velocidad seran a veces inestables, piloto: fiate de tus ojos.\n\nLUNA : Sopla un viento de polvo del norte. Empujara la nave: compensa inclinandote."},
   },
   post={
-   {"TRANSMISION RECIBIDA", "Sin enlace con la Tierra, LUNA capta una grabacion de Varga: 'Aqui las ondas de radio no viajan. Asi que construi un camino de luz.'\n\nLUNA : Las balizas son sus palabras, encendidas una a una. Lo escribio para alguien a quien nunca conocio. Para ti."},
+   {"TRANSMISION RECIBIDA", "Sin enlace con la Tierra, LUNA capta, por las balizas, una grabacion de Varga: 'Aqui las ondas de radio no viajan. Asi que construi un camino de luz.'\n\nLUNA : Las balizas son sus palabras, encendidas una a una. Lo escribio para alguien a quien nunca conocio. Para ti."},
   },
   radio={"LUNA : Mis lecturas fallan. Fiate de tus ojos.", "LUNA : El viento afloja a ratos. Aprovecha las calmas."}},
 -- M9

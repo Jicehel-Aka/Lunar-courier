@@ -63,20 +63,20 @@ return {
 -- M7
  {name="AU DELA DE L'HORIZON", objective="Reveiller la balise Beta",
   pre={
-   {"LA FACE CACHEE", "CHAPITRE 2\n\nLa route de lumiere court vers la face que la Terre ne voit jamais. LUNA previent : la-bas, aucune liaison radio. Vous n'aurez que les balises pour vous guider."},
-   {"BRIEFING", "LUNA : Dans quelques minutes la Terre passera sous l'horizon. Quand elle disparaitra, je perdrai la liaison.\n\nLUNA : Pas de panique : la balise Beta sera notre prochain phare. Prenez la capsule, puis posez-vous."},
+   {"LA FACE CACHEE", "CHAPITRE 2\n\nLa route de lumiere court vers la face que la Terre ne voit jamais. Plus aucune liaison avec la Terre la-bas. Vous n'aurez que les balises, et la voix de LUNA, a bord."},
+   {"BRIEFING", "LUNA : Dans quelques minutes la Terre passera sous l'horizon. Quand elle disparaitra, je perdrai la liaison avec le Controle. Pas avec vous : je vis dans ce vaisseau, pilote.\n\nLUNA : Pas de panique : la balise Beta sera notre prochain phare. Prenez la capsule, puis posez-vous."},
   },
   post={
    {"TRANSMISSION RECUE", "Beta repond avec une signature : I. VARGA, commandant de la station Argo. La voix du message n'etait donc pas une IA. Quelqu'un a construit ce reseau en sachant qu'un autre pilote viendrait.\n\nLUNA : Ines Varga... Le nom est dans mes archives."},
   },
-  radio={"LUNA : La Terre passe sous l'horizon... liaison perdue."}},
+  radio={"LUNA : La Terre passe sous l'horizon. Liaison Terre perdue."}},
 -- M8
  {name="SILENCE RADIO", objective="Relayer le signal",
   pre={
-   {"BRIEFING", "LUNA : Silence radio total. Mes instruments de vitesse seront parfois instables, pilote : fiez-vous a vos yeux.\n\nLUNA : Un vent de poussiere souffle du nord. Il poussera le vaisseau : compensez en inclinant."},
+   {"BRIEFING", "LUNA : Plus aucune voix de la Terre : je ne vous parle que depuis le vaisseau. Mes instruments de vitesse seront parfois instables, pilote : fiez-vous a vos yeux.\n\nLUNA : Un vent de poussiere souffle du nord. Il poussera le vaisseau : compensez en inclinant."},
   },
   post={
-   {"TRANSMISSION RECUE", "Sans lien avec la Terre, LUNA capte un enregistrement de Varga : 'Ici, les ondes ne portent pas. Alors j'ai construit une route de lumiere.'\n\nLUNA : Les balises sont ses mots, allumes un a un. Elle a ecrit cela pour quelqu'un qu'elle ne connaissait pas. Pour vous."},
+   {"TRANSMISSION RECUE", "Sans lien avec la Terre, LUNA capte, par les balises, un enregistrement de Varga : 'Ici, les ondes ne portent pas. Alors j'ai construit une route de lumiere.'\n\nLUNA : Les balises sont ses mots, allumes un a un. Elle a ecrit cela pour quelqu'un qu'elle ne connaissait pas. Pour vous."},
   },
   radio={"LUNA : Mes mesures sont brouillees. Fiez-vous a vos yeux.", "LUNA : Le vent faiblit par moments. Profitez des accalmies."}},
 -- M9

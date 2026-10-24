@@ -63,20 +63,20 @@ return {
 -- M7
  {name="JENSEITS DES RANDS", objective="Beta-Bake wecken",
   pre={
-   {"DIE RUECKSEITE", "KAPITEL 2\n\nDie Strasse aus Licht fuehrt zur Seite, die die Erde nie sieht. LUNA warnt: kein Funk dort draussen. Nur die Baken weisen dir den Weg."},
-   {"BRIEFING", "LUNA : In wenigen Minuten versinkt die Erde hinter dem Horizont. Wenn sie verschwindet, verliere ich die Verbindung.\n\nLUNA : Keine Panik: Die Beta-Bake wird unser naechster Leuchtturm. Nimm die Kapsel, dann lande."},
+   {"DIE RUECKSEITE", "KAPITEL 2\n\nDie Strasse aus Licht fuehrt zur Seite, die die Erde nie sieht. Dort draussen keine Verbindung zur Erde. Nur die Baken und LUNAs Stimme an Bord."},
+   {"BRIEFING", "LUNA : In wenigen Minuten versinkt die Erde hinter dem Horizont. Wenn sie verschwindet, verliere ich die Verbindung zur Kontrolle. Nicht zu dir: Ich lebe in diesem Schiff, Pilot.\n\nLUNA : Keine Panik: Die Beta-Bake wird unser naechster Leuchtturm. Nimm die Kapsel, dann lande."},
   },
   post={
    {"NACHRICHT EMPFANGEN", "Beta antwortet mit einer Signatur: I. VARGA, Kommandantin der Station Argo. Die Stimme der Nachricht war also keine KI. Jemand baute dieses Netz im Wissen, dass ein weiterer Pilot kommt.\n\nLUNA : Ines Varga... Der Name steht in meinen Archiven."},
   },
-  radio={"LUNA : Die Erde versinkt am Horizont... Verbindung verloren."}},
+  radio={"LUNA : Erde unter dem Horizont. Erdverbindung verloren."}},
 -- M8
  {name="FUNKSTILLE", objective="Signal weiterleiten",
   pre={
-   {"BRIEFING", "LUNA : Totale Funkstille. Meine Geschwindigkeitswerte sind manchmal instabil, Pilot: Vertrau deinen Augen.\n\nLUNA : Ein Staubwind weht von Norden. Er drueckt das Schiff: Gleiche durch Neigen aus."},
+   {"BRIEFING", "LUNA : Keine Stimme mehr von der Erde: Ich spreche nur noch aus dem Schiff. Meine Geschwindigkeitswerte sind manchmal instabil, Pilot: Vertrau deinen Augen.\n\nLUNA : Ein Staubwind weht von Norden. Er drueckt das Schiff: Gleiche durch Neigen aus."},
   },
   post={
-   {"NACHRICHT EMPFANGEN", "Ohne Verbindung zur Erde faengt LUNA eine Aufnahme von Varga auf: 'Hier tragen Funkwellen nicht. Also baute ich eine Strasse aus Licht.'\n\nLUNA : Die Baken sind ihre Worte, eins nach dem anderen entzuendet. Sie schrieb das fuer jemanden, den sie nie traf. Fuer dich."},
+   {"NACHRICHT EMPFANGEN", "Ohne Verbindung zur Erde faengt LUNA ueber die Baken eine Aufnahme von Varga auf: 'Hier tragen Funkwellen nicht. Also baute ich eine Strasse aus Licht.'\n\nLUNA : Die Baken sind ihre Worte, eins nach dem anderen entzuendet. Sie schrieb das fuer jemanden, den sie nie traf. Fuer dich."},
   },
   radio={"LUNA : Meine Werte sind gestoert. Vertrau deinen Augen.", "LUNA : Der Wind laesst manchmal nach. Nutze die Flauten."}},
 -- M9

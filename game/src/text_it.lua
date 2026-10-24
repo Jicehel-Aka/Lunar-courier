@@ -63,20 +63,20 @@ return {
 -- M7
  {name="OLTRE L'ORIZZONTE", objective="Sveglia il faro Beta",
   pre={
-   {"IL LATO NASCOSTO", "CAPITOLO 2\n\nLa strada di luce va verso il lato che la Terra non vede mai. LUNA avverte: niente radio la' fuori. Solo i fari ti guideranno."},
-   {"BRIEFING", "LUNA : Tra pochi minuti la Terra sprofondera' sotto l'orizzonte. Quando sparira', perdero' il collegamento.\n\nLUNA : Calma: il faro Beta sara' il nostro prossimo faro-guida. Prendi la capsula, poi atterra."},
+   {"IL LATO NASCOSTO", "CAPITOLO 2\n\nLa strada di luce va verso il lato che la Terra non vede mai. La' fuori nessun collegamento con la Terra. Solo i fari e la voce di LUNA, a bordo."},
+   {"BRIEFING", "LUNA : Tra pochi minuti la Terra sprofondera' sotto l'orizzonte. Quando sparira', perdero' il collegamento con il Controllo. Non con te: vivo in questa nave, pilota.\n\nLUNA : Calma: il faro Beta sara' il nostro prossimo faro-guida. Prendi la capsula, poi atterra."},
   },
   post={
    {"TRASMISSIONE RICEVUTA", "Beta risponde con una firma: I. VARGA, comandante della stazione Argo. Quindi la voce del messaggio non era un'IA. Qualcuno ha costruito questa rete sapendo che sarebbe arrivato un altro pilota.\n\nLUNA : Ines Varga... Il nome e' nei miei archivi."},
   },
-  radio={"LUNA : La Terra sprofonda sull'orizzonte... collegamento perso."}},
+  radio={"LUNA : Terra sotto l'orizzonte. Collegamento con la Terra perso."}},
 -- M8
  {name="SILENZIO RADIO", objective="Ritrasmetti il segnale",
   pre={
-   {"BRIEFING", "LUNA : Silenzio radio totale. Le mie letture di velocita' saranno a volte instabili, pilota: fidati dei tuoi occhi.\n\nLUNA : Soffia un vento di polvere da nord. Spingera' la nave: compensa inclinandoti."},
+   {"BRIEFING", "LUNA : Nessuna voce dalla Terra: ti parlo solo dall'interno della nave. Le mie letture di velocita' saranno a volte instabili, pilota: fidati dei tuoi occhi.\n\nLUNA : Soffia un vento di polvere da nord. Spingera' la nave: compensa inclinandoti."},
   },
   post={
-   {"TRASMISSIONE RICEVUTA", "Senza collegamento con la Terra, LUNA capta una registrazione di Varga: 'Qui le onde radio non viaggiano. Cosi' ho costruito una strada di luce.'\n\nLUNA : I fari sono le sue parole, accese una a una. L'ha scritto per qualcuno che non ha mai conosciuto. Per te."},
+   {"TRASMISSIONE RICEVUTA", "Senza collegamento con la Terra, LUNA capta, attraverso i fari, una registrazione di Varga: 'Qui le onde radio non viaggiano. Cosi' ho costruito una strada di luce.'\n\nLUNA : I fari sono le sue parole, accese una a una. L'ha scritto per qualcuno che non ha mai conosciuto. Per te."},
   },
   radio={"LUNA : Letture disturbate. Fidati dei tuoi occhi.", "LUNA : Il vento cala a tratti. Approfitta delle calme."}},
 -- M9
