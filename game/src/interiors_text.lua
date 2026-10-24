@@ -1,5 +1,5 @@
 -- Textes des interieurs a pied de M10 (epave), M11 (Argo-2) et M12 (caisson de Varga), 6 langues, ASCII pur.
--- Contraintes : titre <= 28 car., objectif <= 38 car., messages <= 4 lignes de 24 car. dans la console de LUNA.
+-- Contraintes : titre <= 28 car., objectif <= 38 car., messages <= 3 lignes de 35 car. dans la console de LUNA.
 return {
 fr={
 gen_far="LUNA : Rien a faire ici. Cherchez le marqueur ambre.", gen_done="Deja fait. Continuez a explorer.",

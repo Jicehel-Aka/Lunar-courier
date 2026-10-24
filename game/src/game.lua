@@ -504,7 +504,8 @@ local function updateInterlude(dt)
         return
     end
     if state == "reactor" then
-        if Reactor.update(dt) then unloadExplorerSprites(); beginMission(explore.nextI or 6) end
+        local mk = I.moveKeys()
+        if Reactor.update(dt, anyDown(mk.left), anyDown(mk.right)) then unloadExplorerSprites(); beginMission(explore.nextI or 6) end
         Audio.thrust(false)
         return
     end
@@ -1728,8 +1729,8 @@ function Game.draw()
         local objective = explore.site == "comms" and Communications.objective() or Station.objective()
         centered(objective, 63, fonts.f16, {214,225,230})
         -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
-        -- Tout est en police 16 (8 px reels sur l'AKA) ; 24 caracteres par ligne au maximum.
-        local cx, cy, cw, ch = 24, 96, 424, 150
+        -- Tout est en police 16 (8 px reels sur l'AKA) ; 35 caracteres par ligne au maximum, 3 lignes.
+        local cx, cy, cw, ch = 24, 96, 592, 128
         local siteMode = explore.site == "comms" and Communications.s.mode or Station.s.mode
         if siteMode == "walk" then
         panel(cx, cy, cw, ch)
@@ -1745,7 +1746,7 @@ function Game.draw()
             -- retour a la ligne manuel (calcule une seule fois par message) : le texte ne bouge pas en s'ecrivant
             local lines, cur = {}, ""
             for word in msg:gmatch("%S+") do
-                if #cur > 0 and #cur + 1 + #word > 24 then lines[#lines+1] = cur; cur = word
+                if #cur > 0 and #cur + 1 + #word > 35 then lines[#lines+1] = cur; cur = word
                 else cur = (#cur > 0) and (cur.." "..word) or word end
             end
             if #cur > 0 then lines[#lines+1] = cur end

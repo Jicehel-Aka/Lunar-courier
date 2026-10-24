@@ -185,7 +185,7 @@ Game._begin = function(i) beginMission(i) end
 Game._explore = function() require('src.station').reset(); loadExplorerSprites(); explore.x, explore.y, explore.vy, explore.t = 100, 0, 0, 0; explore.repaired, explore.repairs, explore.campaign = false, 0, false; state = 'explore' end
 Game._tp = function(x) explore.x = x end
 Game._interior = function(kind) require('src.communications').reset(kind); explore.site = 'comms'; explore.leaveT = nil; explore.nextI = 2; explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0; state = 'explore' end
-Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
+Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], d4=S.door[4], d5=S.door[5], val=S.val, repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
 Game._sg = function() local S = require('src.signal').s; return {f=S.f, p=S.p, tf=S.c.tf, tp=S.c.tp, locked=S.locked, match=S.match or 0, mul=explore.nextMul or 1} end
 Game._cm = function() local C = require('src.communications').s; return {room=C.room, checked=C.checked, repaired=C.repaired, d1=C.doors[1], d2=C.doors[2], mode=C.mode, kind=C.kind, s1=C.step[1], s2=C.step[2], s3=C.step[3], leave=explore.leaveT} end
 Game._sgset = function(f,p) local S = require('src.signal').s; S.f, S.p = f, p end
@@ -332,10 +332,10 @@ txt_errs = lua.eval('''(function()
           if v:find("[\\128-\\255]") then out[#out+1] = file.." "..l.." "..k.." non ASCII" end
           if k:find("_obj") and #v > 38 then out[#out+1] = l.." "..k.." objectif "..#v.." > 38" end
           if k:find("_header") and #v > 28 then out[#out+1] = l.." "..k.." titre "..#v.." > 28" end
-          if (k:find("_intro") or k:find("_act") or k:find("^gen_")) and wrapn(v, 24) > 4 then out[#out+1] = l.." "..k.." > 4 lignes de 24" end
+          if (k:find("_intro") or k:find("_act") or k:find("^gen_")) and wrapn(v, 35) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 35" end
           local w = v:gsub("%%%%", "%%"):gsub("%%[sd]", "AA")
           if (k:find("^sg_[id]%d") or k:find("^sg_[hp]")) and wrapn(w, 30) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 30" end
-          if (k:find("^st_[rpa]%d") or k:find("^st_m_") or k=="st_dark" or k=="st_solved" or k=="st_over") and wrapn(w, 24) > 4 then out[#out+1] = l.." "..k.." > 4 lignes de 24" end
+          if (k:find("^st_[rpaqg]%d") or k:find("^st_ob%d") or k=="st_bunk" or k:find("^st_m_") or k=="st_dark" or k=="st_solved" or k=="st_over") and wrapn(w, 35) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 35" end
           if (k:find("^r_msg") or k=="r_lock" or k=="r_bad" or k=="r_standby" or k=="r_ins" or k=="r_home" or k=="r_help" or k=="r_inplace") and wrapn(w, 31) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 31" end
           if (k:find("^ci_s%d") and #v > 22) or (k:find("^ci_p%d") and #v > 28) then out[#out+1] = l.." "..k.." trop long" end
           if (k:find("^st_h") or k:find("^r_o%d") or k:find("^sg_t%d")) and #v > 38 then out[#out+1] = l.." "..k.." > 34" end
@@ -370,10 +370,10 @@ print("pre cards M1:", dbg()['state'], dbg()['ncards'])
 import ap
 autopilot = ap.make_autopilot(dbg, beams, debris, step, hold, clamp, lambda a,b: int(lua.eval(f'require("src.game")._maxg({a},{b})')))
 def run_station():
-    """Parcourt la station Argo (4 pieces) avec les vraies touches : portes, relais, mini-jeu, journal, sortie."""
+    """Parcourt la station Argo (6 pieces) avec les vraies touches : portes, relais, mini-jeu, journal, sortie."""
     G = 'require("src.game")'
     def st(): 
-        t = lua.eval(G + '._st()'); return {k: t[k] for k in ('room','d1','d2','d3','repairs','solved','pages','log','mode','used','sel','x')}
+        t = lua.eval(G + '._st()'); return {k: t[k] for k in ('room','d1','d2','d3','d4','d5','val','repairs','solved','pages','log','mode','used','sel','x')}
     def tp(x): lua.execute(G + '._tp(%d)' % x)
     def check(cond, label):
         if not cond:
@@ -390,14 +390,27 @@ def run_station():
     # on traverse la porte ouverte : la piece suivante commence sur sa porte de gauche
     hold('right', True); step(24); hold('right', False); step(30)
     ok &= check(st()['room'] == 2 and st()['x'] < 120, "traverser la porte 1 mene a la porte gauche de la piece 2")
-    # piece 2 : relais dans le mauvais ordre puis le bon
-    tp(270); key('a'); step(1)
-    ok &= check(st()['repairs'] == 0, "relais 2 avant 1 refuse")
+    # piece 2 : le relais 1 se regle sur 2 (notice du couloir) ; la porte reste verrouillee avant
     tp(470); key('a'); step(1)
     ok &= check(not st()['d2'], "porte 2 verrouillee")
-    for x in (190, 270, 350):
+    for x in (110, 190):
         tp(x); key('a'); step(1)
-    ok &= check(st()['repairs'] == 3 and st()['d2'], "3 relais ouvrent la porte 2")
+    def relay(x, target, label):
+        r = True
+        tp(x); key('a'); step(1)
+        r &= check(st()['mode'] == 'relay' and st()['val'] != target, label + " : console du relais ouverte, mauvais reglage au depart")
+        rep0 = st()['repairs']
+        key('a'); step(1)
+        r &= check(st()['mode'] == 'relay' and st()['repairs'] == rep0, label + " : mauvais reglage refuse")
+        for i in range(4):
+            if st()['val'] == target: break
+            key('right'); step(1)
+        r &= check(st()['val'] == target, label + " : reglage atteint")
+        key('a'); step(1)
+        r &= check(st()['mode'] == 'walk', label + " : validation")
+        return r
+    ok &= relay(290, 2, "relais 1")
+    ok &= check(st()['repairs'] == 1 and st()['d2'], "relais 1 ouvre la porte 2")
     tp(540); cross('right')
     ok &= check(st()['room'] == 3 and st()['x'] < 140, "passage en piece 3 par sa porte de gauche")
     # retour arriere : la porte de gauche ramene devant la porte de la piece precedente
@@ -405,7 +418,23 @@ def run_station():
     ok &= check(st()['room'] == 2 and st()['x'] > 500, "retour piece 2 devant sa porte de droite")
     tp(540); cross('right')
     ok &= check(st()['room'] == 3, "retour piece 3")
-    # piece 3 : notes puis mini-jeu
+    # piece 3 (quartiers) : couchette 3 -> relais 2 sur 3 ; relais 1 deja actif
+    tp(470); key('a'); step(1)
+    ok &= check(not st()['d3'], "porte 3 verrouillee")
+    for x in (100, 190, 270):
+        tp(x); key('a'); step(1)
+    ok &= relay(380, 3, "relais 2")
+    ok &= check(st()['repairs'] == 2 and st()['d3'], "relais 2 ouvre la porte 3")
+    tp(540); cross('right')
+    ok &= check(st()['room'] == 4, "passage en piece 4 (serre)")
+    # piece 4 (serre) : 1 lampe allumee -> relais 3 sur 1
+    for x in (100, 200):
+        tp(x); key('a'); step(1)
+    ok &= relay(390, 1, "relais 3")
+    ok &= check(st()['repairs'] == 3 and st()['d4'], "relais 3 ouvre la porte 4")
+    tp(540); cross('right')
+    ok &= check(st()['room'] == 5, "passage en piece 5 (energie)")
+    # piece 5 : notes puis mini-jeu
     for x in (120, 250):
         tp(x); key('a'); step(1)
     tp(470); key('a'); step(1)
@@ -417,13 +446,13 @@ def run_station():
     ok &= check(st()['used'] == 6 and not st()['solved'], "6 unites sans lumiere : non resolu")
     key('down'); step(1); key('a'); step(1)             # balise off -> 5
     key('down'); step(1); key('a'); step(1)             # eclairage on -> 6
-    ok &= check(st()['solved'] and st()['d3'] and st()['mode'] == 'walk', "sas+eclairage+journal resolvent")
+    ok &= check(st()['solved'] and st()['d5'] and st()['mode'] == 'walk', "sas+eclairage+journal resolvent")
     # surcharge refusee
     tp(540); cross('right')
-    ok &= check(st()['room'] == 4, "passage en piece 4")
-    # piece 4 : sortie verrouillee tant que le journal n'est pas lu
+    ok &= check(st()['room'] == 6, "passage en piece 6")
+    # piece 6 : sortie verrouillee tant que le journal n'est pas lu
     tp(470); key('a'); step(1)
-    ok &= check(st()['room'] == 4 and not st()['log'], "sortie verrouillee")
+    ok &= check(st()['room'] == 6 and not st()['log'], "sortie verrouillee")
     for i in range(3):
         tp(300); key('a'); step(1)
     ok &= check(st()['pages'] == 3 and st()['log'], "journal en 3 pages")
@@ -533,9 +562,9 @@ def run_reactor():
     def need(cond, label):
         nonlocal ok
         if not cond: print("REACTOR FAIL:", label, dbg()['state']); FAILED.append("reactor: " + label); ok = False
-    for _ in range(6): key('right'); step(1)
+    hold('right', True); step(40); hold('right', False); step(2)    # marche continue jusqu'au logement (x ~ 286)
     key('e'); step(1)                                   # module insere
-    for _ in range(7): key('right'); step(1)
+    hold('right', True); step(45); hold('right', False); step(2)    # jusqu'a la console (x ~ 520)
     key('e'); step(1)                                   # console
     key('e'); step(1)                                   # phases fausses : refus
     need(dbg()['state'] == 'reactor', "refus si phases fausses")

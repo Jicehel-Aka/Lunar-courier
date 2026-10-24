@@ -9,8 +9,17 @@ function R.reset()
           selected=1, solved=false, t=0, message=T("r_msg0"),
           msgT=8, flash=0}
 end
-function R.update(dt)
+function R.update(dt, left, right)
     if not st then R.reset() end
+    -- Marche continue tant que la touche est maintenue ; l'animation ne tourne qu'en mouvement.
+    local moving=false
+    if not st.console and not st.solved then
+        local old=st.x
+        if left and not right then st.x=math.max(42,st.x-145*dt); st.facing=-1
+        elseif right and not left then st.x=math.min(598,st.x+145*dt); st.facing=1 end
+        moving=st.x~=old
+    end
+    st.walkT=moving and ((st.walkT or 0)+dt*10) or 0
     st.t=st.t+dt; st.msgT=math.max(0,st.msgT-dt); st.flash=math.max(0,st.flash-dt)
     if st.solved then st.doneT=(st.doneT or 0)+dt end
     return st.solved and st.doneT>2.8
@@ -31,9 +40,7 @@ function R.keypressed(key,isrepeat)
         elseif key=="x" then st.console=false; say(T("r_standby"),3) end
         return
     end
-    if key=="left" or key=="q" then st.x=math.max(42,st.x-34); st.facing=-1
-    elseif key=="right" or key=="d" then st.x=math.min(598,st.x+34); st.facing=1
-    elseif key=="e" or key=="a" or key=="return" or key=="space" then
+    if key=="e" or key=="a" or key=="return" or key=="space" then
         if not st.inserted and math.abs(st.x-286)<58 then
             st.inserted=true; say(T("r_ins"),5)
         elseif not st.inserted then say(T("r_home"),3)
@@ -62,7 +69,7 @@ function R.draw(ui, sprites)
     for i=0,15 do color(37,57,71); rect(i*44+8,390,2,72) end
     for i=0,11 do local on=st.inserted and math.floor(st.t*4+i)%3~=0; color(on and 68 or 40,on and 214 or 75,on and 211 or 89); rect(22+i*51,356,28,3) end
     local frames = sprites and (sprites[st.console and "interaction" or (st.facing < 0 and "walk_left" or "walk_right")]) or nil
-    local sprite = frames and frames[st.console and 1 or (1 + math.floor(st.t*7)%4)] or nil
+    local sprite = frames and frames[st.console and 1 or (1 + math.floor(st.walkT or 0)%4)] or nil
     if sprite and sprite.getDimensions then
         local sw, sh = sprite:getDimensions()
         local targetH = 76
