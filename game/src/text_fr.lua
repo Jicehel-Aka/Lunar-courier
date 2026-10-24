@@ -151,6 +151,7 @@ return {
 -- M16
  {name="LA GORGE DES OMBRES", objective="Franchir la gorge",
   pre={
+   {"RESEAU RETABLI", "Les Lucioles ont synchronise les balises. Le relais Argo renvoie enfin une impulsion vers la Terre. Une fenetre de transmission vient de s ouvrir.\n\nLUNA : Le reseau est de nouveau alimente. Quelqu un nous repond."},
    {"CENTRE LAGRANGE", "CONTROLE : ...ici Centre Lagrange, repondez... Pilote, nous recevons vos balises depuis ce matin. Nous pensions la Lune perdue. Qui etes-vous ?\n\nLUNA : Ici le Courier, vaisseau de livraison lunaire. Nous allumons la route."},
    {"CENTRE LAGRANGE", "CONTROLE : Ici Theo Marchand, controleur. Vos balises clignotent en code depuis onze ans. Un seul mot, repete. Nous avons mis du temps a le lire.\n\nCONTROLE : VIVANTS. Ca disait : VIVANTS."},
    {"BRIEFING", "LUNA : La gorge des Ombres. Les rayons y rebondissent sur les parois : trois eclairs, trois rythmes.\n\nLUNA : Passez entre les eclairs, pilote. Un seul contact et vous perdez de la coque, pas votre sang-froid."},
