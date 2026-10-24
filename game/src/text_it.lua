@@ -151,6 +151,7 @@ return {
 -- M16
  {name="GOLA D'OMBRA", objective="Attraversa la gola",
   pre={
+   {"RETE RIPRISTINATA", "Le Lucciole hanno sincronizzato i fari. Il relay Argo invia finalmente un impulso alla Terra. Si apre una finestra di trasmissione.\n\nLUNA : La rete e di nuovo attiva. Qualcuno risponde."},
    {"CENTRO LAGRANGE", "CONTROLLO : ...qui Centro Lagrange, rispondete... Pilota, riceviamo i vostri fari da stamattina. Credevamo la Luna perduta. Chi siete?\n\nLUNA : Qui il Courier, nave di consegne lunare. Stiamo accendendo la strada."},
    {"CENTRO LAGRANGE", "CONTROLLO : Sono Theo Marchand, controllore. I vostri fari lampeggiano in codice da undici anni. Una parola, ripetuta. Ci abbiamo messo a leggerla.\n\nCONTROLLO : VIVI. Diceva: VIVI."},
    {"BRIEFING", "LUNA : Gola d'Ombra. I raggi rimbalzano sulle pareti: tre lampi, tre ritmi.\n\nLUNA : Scivola tra i lampi, pilota. Un tocco e perdi scafo, non la calma."},
