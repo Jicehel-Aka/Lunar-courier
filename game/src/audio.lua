@@ -26,7 +26,7 @@ function A.load()
     for n in pairs(SFX_VOL) do
         A.sfx[n] = make("sfx/"..n..".wav", false, SFX_VOL[n]) and true or nil   -- verifie seulement que le fichier existe
     end
-    A.sfx.thrust = make("sfx/thrust.wav", true, 0.5)
+    A.sfx.thrust = make("sfx/thrust.wav", true, 1.0)
 end
 
 function A.play(name)
@@ -56,7 +56,7 @@ function A.setMusic(name)
     end
     A.musicName = name
     if not A.musicOn or not name then return end
-    A.music = make("mus/"..name..".wav", true, 0.45)
+    A.music = make("mus/"..name..".wav", true, 1.0)
     if A.music and A.music.play then try(A.music.play, A.music) end
 end
 

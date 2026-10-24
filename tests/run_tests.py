@@ -515,7 +515,7 @@ for mi in range(1, nm+1):
             d=res[1]; results[mi]=(attempt, round(d['fuel']), round(d['hull']), round(d['t'],1)); ok=True; break
         else:
             hold('left',False); hold('right',False); hold('up',False)
-            results[mi]=(attempt,'fail',res[1]); key('v'); step(1)
+            results[mi]=(attempt,'fail',res[1]); key('space'); step(1)
     if not ok:
         print("mission",mi,"NOT completed by naive autopilot", results[mi]); FAILED.append(mi); break
     hold('left',False); hold('right',False); hold('up',False)
@@ -568,7 +568,7 @@ def check(c, msg):
     if not c: EXTRA.append(msg)
 lua.execute('I18N.aka = false; I18N.kbTouched = false; I18N.setLang("fr")')
 check(lua.eval('I18N.kb') == 'azerty', "PC fr should default to azerty")
-check(lua.eval('I18N.t("hint2")') == 'ESPACE : OK    X : SON', "PC fr hint2: "+str(lua.eval('I18N.t("hint2")')))
+check(lua.eval('I18N.t("hint2")') == 'ESPACE : OK  ECHAP : MENU', "PC fr hint2: "+str(lua.eval('I18N.t("hint2")')))
 lua.execute('I18N.setLang("en")')
 check(lua.eval('I18N.kb') == 'qwerty', "PC en should follow qwerty")
 check(lua.eval('I18N.t("card_next")') == 'SPACE : CONTINUE', "PC en card_next: "+str(lua.eval('I18N.t("card_next")')))
@@ -588,7 +588,7 @@ for aka, kb in ((False,"azerty"),(False,"qwerty"),(True,"aka")):
         e = run('local G=require("src.game"); G.keypressed("right"); love.draw()'); check(e is None, f"menu cycle: {e}")
     run('local G=require("src.game"); G.keypressed("escape"); G.keyreleased("escape")')
     # pages Commandes et Credits du menu, pause
-    for nav in (1, 6):
+    for nav in (1, 5 if aka else 6):
         e = run('local G=require("src.game"); G.keypressed("escape","escape",false); G.keyreleased("escape")' + ' G.keypressed("down");'*nav + ' G.keypressed("space"); love.draw(); G.keypressed("space"); G.keypressed("escape","escape",false); G.keyreleased("escape")')
         check(e is None, f"menu page {nav} {lang}: {e}")
     for st in ("title","instructions","card","game","debrief"):
@@ -605,7 +605,7 @@ run('local G=require("src.game"); G.keypressed("escape","escape",false); G.keyre
 fsd = lua.eval('__fs()')['lunar_courier.sav']
 if fsd is not None: check('shot=2' in fsd and 'lang=' in fsd and 'kb=' in fsd, "settings saved: "+repr(fsd))
 # clavier azerty : q/z/d pilotent
-lua.execute('I18N.setKb("azerty", true)')
+lua.execute('I18N.aka = false; I18N.setKb("azerty", true)')
 check(lua.eval('table.concat(I18N.moveKeys().up, ",")') == 'up,z', "azerty up keys")
 lua.execute('I18N.setKb("qwerty", true)')
 check(lua.eval('table.concat(I18N.moveKeys().up, ",")') == 'up,w', "qwerty up keys")

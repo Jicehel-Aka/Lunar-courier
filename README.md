@@ -11,21 +11,21 @@ Un seul code pour la **Gamebuino AKA** (runtime [AKA-Love](https://github.com/Ji
 ## Langues et clavier
 - **6 langues** : francais (par defaut), anglais, portugais, allemand, espagnol, italien. Textes d'histoire, aide, options et libelles de touches suivent la langue immediatement. Les textes sont dans `game/src/text_<code>.lua`, l'interface dans `game/src/i18n.lua` (ASCII pur : accents et umlauts sont translitteres, AKA-Love ne les dessine pas). Traductions de DE/ES/IT/PT : a faire relire par des locuteurs natifs.
 - **Clavier PC** : AZERTY (FR), QWERTZ (DE) ou QWERTY (autres langues), choisi automatiquement avec la langue tant que vous ne le changez pas dans le menu. AZERTY : Q / D / Z en plus des fleches ; QWERTY et QWERTZ : A / D / W.
-- Les libelles affichent la **vraie touche** : sur PC `ESPACE` / `SPACE` / `ESPACO` / `LEERTASTE` / `ESPACIO` / `SPAZIO`, `X`, `C`, `V`, `ECHAP` / `ESC` ; sur AKA `A`, `B`, `C`, `D`, `MENU` (les commandes de la console ne changent pas avec la langue). La detection se fait par `love.system.getOS()` ("Other" = AKA-Love).
+- Les libelles affichent la **vraie touche** : sur PC `ESPACE` / `SPACE` / `ESPACO` / `LEERTASTE` / `ESPACIO` / `SPAZIO`, `X`, `ECHAP` / `ESC` ; sur AKA `A`, `B`, `MENU` (les commandes de la console ne changent pas avec la langue). La detection se fait par `love.system.getOS()` ("Other" = AKA-Love).
 
 ## Commandes
 | Action | Console AKA | PC |
 |---|---|---|
 | Tourner | D-pad gauche/droite | fleches (+ Q/D en AZERTY, A/D en QWERTY) |
 | Propulseur | D-pad haut | fleche haut (+ Z en AZERTY, W en QWERTY) |
-| Valider / passer une carte | A | Espace / Entree |
-| Pause | C | C ou P |
-| Recommencer la mission | D | V ou R |
-| Menu systeme | MENU (appui court) | Echap |
-| Capture d'ecran | MENU (appui long) ou menu | F12, appui long sur Echap, ou menu |
-| Musique on/off | B | X ou M |
+| Valider / agir (missions a pied) / continuer | A | Espace / Entree |
+| Sauter (missions a pied) / retour dans les menus | B | X |
+| Menu systeme (pause, musique oui/non, recommencer la mission, langue, commandes...) | MENU (appui court) | Echap |
+| Capture d'ecran | menu (si le runtime la fournit) | F12, appui long sur Echap, ou menu |
 
-Menu systeme (toutes les ecrans, met le jeu en pause) : Reprendre, Commandes, Langue, Clavier, Musique, Capture d'ecran, Credits, Retour au titre, Quitter / Retour au lanceur.
+Apres un echec (coque brisee, carburant epuise), A recommence la mission. La pause, la musique et le recommencement sont dans le menu systeme.
+
+Menu systeme (tous les ecrans, met le jeu en pause) : Reprendre, Commandes, Langue, Clavier (PC seulement), Musique, Recommencer (en mission), Capture d'ecran (PC), Credits, Retour au titre, Quitter / Retour au lanceur.
 Ecran titre : Continuer, Nouvelle partie, choix du chapitre (progression sauvegardee automatiquement avec la langue et le clavier).
 
 **Captures** : `love.graphics.captureScreenshot` ; sur PC le fichier `lunar_NNNN.png` est ecrit dans le dossier de sauvegarde LOVE (`%APPDATA%\LOVE\lunar-courier` sous Windows). Le runtime AKA-Love n'a pas cette fonction pour l'instant : le jeu affiche alors "capture indisponible" (a ajouter cote akalove pour ecrire sur la carte SD).

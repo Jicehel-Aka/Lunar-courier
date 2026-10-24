@@ -205,7 +205,7 @@ function S.key(k)
     elseif k == "down" or k == "right" or k == "s" or k == "d" then
         st.sel = st.sel + 1; if st.sel > #CIRCUITS + 1 then st.sel = 1 end
         return true, "move"
-    elseif k == "escape" then
+    elseif k == "escape" or k == "x" then
         st.mode = "walk"
         return true, "move"
     elseif k == "e" or k == "a" or k == "return" or k == "space" then

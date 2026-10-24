@@ -222,7 +222,7 @@ function D.draw(ui)
         if shown > 0 then g.printf(lines[i]:sub(1, shown), 36, 44 + (i - 1) * 18, 570, "left") end
         shown = shown - #lines[i] - 1
     end
-    c(255, 190, 98); g.printf("E / ESPACE : PASSER", 0, 446, 640, "center")
+    c(255, 190, 98); g.printf(require("src.i18n").t("skip"), 0, 446, 640, "center")
 end
 
 return D
