@@ -1713,7 +1713,7 @@ function Game.draw()
         if explore.site ~= "comms" then Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj}) end
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
     elseif state == "reactor" then
-        Reactor.draw({color=color, rect=rect, panel=panel, centered=centered, f8=fonts.f8, f16=fonts.f16, f24=fonts.f24, aka=I.aka})
+        Reactor.draw({color=color, rect=rect, panel=panel, centered=centered, f8=fonts.f8, f16=fonts.f16, f24=fonts.f24, aka=I.aka}, explorerSprites)
     elseif state == "disembark" then
         drawDisembark()
     elseif state == "signal" then
