@@ -12,6 +12,7 @@ local Signal  = require("src.signal")
 local Dis     = require("src.disembark")
 local Reactor = require("src.reactor")
 local Communications = require("src.communications")
+local Perf = require("src.perf")
 local Game = {}
 
 local W, H = 640, 480
@@ -1473,6 +1474,7 @@ local function sysItems()
     it[#it+1] = {id="lang",     label=I.t("m_lang", I.langNames[I.lang])}
     if #I.kbList() > 1 then it[#it+1] = {id="kb", label=I.t("m_kb", I.kbLabel())} end
     it[#it+1] = {id="music",    label=I.t("m_music", I.onoff(Audio.musicOn))}
+    it[#it+1] = {id="perf",     label=I.t("m_perf", I.onoff(Perf.on))}
     if state == "game" or state == "debrief" then it[#it+1] = {id="restart", label=I.t("m_restart")} end
     if love.graphics and love.graphics.captureScreenshot then it[#it+1] = {id="shot", label=I.t("m_shot")} end
     it[#it+1] = {id="credits",  label=I.t("m_credits")}
@@ -1845,6 +1847,7 @@ local function sysAct(id)
     elseif id == "lang" then I.nextLang(); buildMenu(); saveSettings()
     elseif id == "kb" then I.nextKb(); saveSettings()
     elseif id == "music" then toggleMusic()
+    elseif id == "perf" then Perf.set(not Perf.on)
     elseif id == "restart" then closeSys(); state = "game"; resetMission()
     elseif id == "shot" then closeSys(); shotPending = 2
     elseif id == "title" then closeSys(); Audio.thrust(false); backToTitle()
@@ -1864,7 +1867,7 @@ local function sysKey(key)
     elseif key == "down" then sysSel = sysSel + 1; if sysSel > #items then sysSel = 1 end; Audio.play("menu")
     elseif key == "left" or key == "right" then
         local it = items[sysSel]
-        if it and (it.id == "lang" or it.id == "kb" or it.id == "music") then sysAct(it.id) end
+        if it and (it.id == "lang" or it.id == "kb" or it.id == "music" or it.id == "perf") then sysAct(it.id) end
     elseif confirm(key) then
         local it = items[sysSel]; if it then sysAct(it.id) end
     elseif key == "x" then closeSys()
@@ -2005,6 +2008,14 @@ end
 
 function Game.focus(focused)
     if not focused and state == "game" then paused = true; Audio.thrust(false) end
+end
+
+-- Mesure de performance (menu PERF) : enveloppes minces, aucun cout quand PERF est coupe.
+local rawUpdate, rawDraw = Game.update, Game.draw
+function Game.update(dt) Perf.updBegin(); rawUpdate(dt); Perf.updEnd(dt) end
+function Game.draw()
+    Perf.drawBegin(); rawDraw()
+    if Perf.on then Perf.drawEnd(state == "explore" and (explore.site == "comms" and "comms" or "station") or state, fonts.f16.obj) end
 end
 
 return Game

@@ -23,13 +23,50 @@ PRIM = 0
 local curSize = 16
 local function chk(name, n, min) if n < min then error(name.." called with "..n.." args (need >="..min..")", 3) end end
 local function isnum(...) for i=1,select('#',...) do if type(select(i,...))~="number" then return false end end return true end
+-- Cout de remplissage estime (px virtuels, transformations translate/scale suivies, rotation ignoree).
+-- FILL = surface visible a l'ecran ; un rectangle de plus de 10 ecrans AVANT rognage est signale :
+-- le runtime AKA ne rogne pas avant de remplir (crash "le script ne rend pas la main" en M3).
+FILL = 0
+FPROF = nil
+local TX, TY, SX, SY, TSTACK = 0, 0, 1, 1, {}
+local SCREEN = 640 * 480
+local function clipped(x0, y0, x1, y1)
+  if x0 < 0 then x0 = 0 end if y0 < 0 then y0 = 0 end
+  if x1 > 640 then x1 = 640 end if y1 > 480 then y1 = 480 end
+  if x1 > x0 and y1 > y0 then return (x1 - x0) * (y1 - y0) end
+  return 0
+end
+function love.graphics.push() TSTACK[#TSTACK+1] = {TX, TY, SX, SY} end
+function love.graphics.pop() local t = table.remove(TSTACK); if t then TX, TY, SX, SY = t[1], t[2], t[3], t[4] end end
+function love.graphics.translate(x, y) TX = TX + (x or 0) * SX; TY = TY + (y or 0) * SY end
+function love.graphics.scale(x, y) SX = SX * (x or 1); SY = SY * (y or x or 1) end
 function love.graphics.rectangle(mode,x,y,w,h) PRIM = PRIM + 1 chk("rectangle",select('#',mode,x,y,w,h),5)
-  if not isnum(x,y,w,h) then error("rectangle non-number",2) end end
-function love.graphics.circle(mode,x,y,r) PRIM = PRIM + 1 chk("circle",select('#',mode,x,y,r),4) end
+  if not isnum(x,y,w,h) then error("rectangle non-number",2) end
+  local x0, y0 = TX + x * SX, TY + y * SY
+  local x1, y1 = x0 + w * SX, y0 + h * SY
+  if x1 < x0 then x0, x1 = x1, x0 end if y1 < y0 then y0, y1 = y1, y0 end
+  local raw = (x1 - x0) * (y1 - y0)
+  if raw > 10 * SCREEN then viol("GIANT rectangle (" .. math.floor(raw / SCREEN) .. " ecrans avant rognage)") end
+  local cl = clipped(x0, y0, x1, y1)
+  FILL = FILL + cl
+  if FPROF then
+    local k = ""
+    for lv = 2, 5 do local i = debug.getinfo(lv, "Sl"); if i then k = k .. (i.short_src:match("[^/]*$") or "?") .. ":" .. i.currentline .. " < " end end
+    local st = FPROF_STATE or "?"
+    FPROF[st] = FPROF[st] or {}
+    FPROF[st][k] = (FPROF[st][k] or 0) + cl
+  end end
+function love.graphics.circle(mode,x,y,r) PRIM = PRIM + 1 chk("circle",select('#',mode,x,y,r),4)
+  local rr = r * SX; FILL = FILL + math.min(SCREEN, 3.14159 * rr * rr) end
 function love.graphics.line(...) PRIM = PRIM + 1 chk("line",select('#',...),4) end
 function love.graphics.polygon(mode,...) PRIM = PRIM + 1
   local a={...}; if #a<6 then error("polygon <3 pts",2) end
   local n=#a/2; local sign=0
+  do local ar = 0
+    for i=0,n-1 do local j=(i+1)%n; ar = ar + a[2*i+1]*a[2*j+2] - a[2*j+1]*a[2*i+2] end
+    local raw = math.abs(ar) / 2 * math.abs(SX * SY)
+    if raw > 10 * SCREEN then viol("GIANT polygon (" .. math.floor(raw / SCREEN) .. " ecrans)") end
+    FILL = FILL + math.min(raw, SCREEN) end
   for i=0,n-1 do
     local x1,y1=a[2*i+1],a[2*i+2]; local j=(i+1)%n; local k=(i+2)%n
     local x2,y2=a[2*j+1],a[2*j+2]; local x3,y3=a[2*k+1],a[2*k+2]
@@ -45,7 +82,7 @@ function love.graphics.printf(t,x,y,limit,align) PRIM = PRIM + 1 chk("printf",se
   if #t*curSize > limit then viol("printf overflow: '"..t.."' ("..#t*curSize.." > "..limit..") size="..curSize) end
   if y + curSize > 480 then viol("printf overflow y: '"..t.."' y="..y) end
   if t:find("[\128-\255]") then viol("non-ASCII text: "..t) end end
-for _,n in ipairs{"push","pop","setColor","translate","rotate","scale"} do love.graphics[n]=function() end end
+for _,n in ipairs{"setColor","rotate"} do love.graphics[n]=function() end end
 function love.graphics.setFont(f) curSize = f.s end
 function love.graphics.newFont(s) if s%8~=0 then viol("font size not multiple of 8: "..s) end return {s=s} end
 function love.graphics.setBackgroundColor() end
@@ -173,11 +210,18 @@ def debris():
     t = lua.eval('require("src.game")._debris()')
     return [{k: t[i][k] for k in ('x','y','soft')} for i in range(1, len(t)+1)]
 PERF = {'max':0,'sum':0,'n':0}
+PERF_STATE = {}
+FILLPROF = bool(os.environ.get('FILLPROF'))
 def step(n=1, dt=1/30):
     for _ in range(n):
-        lua.execute(f"PRIM=0; love.update({dt}); love.draw()")
-        c = int(lua.eval('PRIM'))
+        if FILLPROF:
+            lua.execute('FPROF = FPROF or {}; FPROF_STATE = require("src.game")._dbg().state')
+        lua.execute(f"PRIM=0; FILL=0; love.update({dt}); love.draw()")
+        c = int(lua.eval('PRIM')); fl = float(lua.eval('FILL'))
         if dbg_state_game(): PERF['max']=max(PERF['max'],c); PERF['sum']+=c; PERF['n']+=1
+        stn = lua.eval('require("src.game")._dbg().state')
+        r = PERF_STATE.setdefault(stn, {'n':0,'psum':0,'pmax':0,'fsum':0.0,'fmax':0.0})
+        r['n']+=1; r['psum']+=c; r['pmax']=max(r['pmax'],c); r['fsum']+=fl; r['fmax']=max(r['fmax'],fl)
 def dbg_state_game():
     return lua.eval('require("src.game")._dbg().state') == 'game'
 def key(k): lua.execute(f"love.keypressed('{k}')")
@@ -633,4 +677,13 @@ if CONTENT: problems.append("content: "+str(CONTENT))
 if problems:
     print("TEST PROBLEMS:"); [print("  -", x) for x in problems]; sys.exit(1)
 print(f"primitives/frame in game: avg={PERF['sum']//max(1,PERF['n'])} max={PERF['max']}")
+if FILLPROF:
+    tb = lua.eval('FPROF')
+    for stn in tb:
+        rows = sorted(((v, k) for k, v in tb[stn].items()), reverse=True)[:6]
+        tot = sum(v for v, k in rows)
+        print("  FILL", stn); [print(f"     {v/307200:9.1f} ecrans  {k}") for v, k in rows]
+print("cout par ecran (formes/image moy, max ; remplissage en ecrans moy, max) :")
+for stn, r in sorted(PERF_STATE.items()):
+    print(f"  {stn:10s} n={r['n']:5d} formes {r['psum']//max(1,r['n']):4d} / {r['pmax']:4d}   remplissage {r['fsum']/max(1,r['n'])/307200:5.2f} / {r['fmax']/307200:5.2f}")
 print("ALL OK")
