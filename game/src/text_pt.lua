@@ -151,6 +151,7 @@ return {
 -- M16
  {name="DESFILADEIRO", objective="Atravesse o desfiladeiro",
   pre={
+   {"REDE ATIVA", "Os Vagalumes sincronizaram os farois. O repetidor Argo envia enfim um pulso para a Terra. Uma janela de transmissao abriu.\n\nLUNA : A rede voltou a funcionar. Alguem responde."},
    {"CENTRO LAGRANGE", "CONTROLE : ...aqui Centro Lagrange, respondam... Piloto, recebemos seus farois desde esta manha. Achavamos a Lua perdida. Quem e voce?\n\nLUNA : Aqui o Courier, nave de entregas lunar. Estamos acendendo a estrada."},
    {"CENTRO LAGRANGE", "CONTROLE : Aqui Theo Marchand, controlador. Seus farois piscam em codigo ha onze anos. Uma palavra, repetida. Demoramos a le-la.\n\nCONTROLE : VIVOS. Dizia: VIVOS."},
    {"BRIEFING", "LUNA : Desfiladeiro das Sombras. Os raios ricocheteiam nas paredes: tres clarroes, tres ritmos.\n\nLUNA : Passe entre os clarroes, piloto. Um toque e voce perde casco, nao a calma."},
