@@ -2069,10 +2069,6 @@ function Game.keypressed(key, scancode, isrepeat)
                     toastT=5
                 end
             end
-        elseif key == "escape" then
-            unloadExplorerSprites()
-            state="title"
-            buildMenu()
         end
     elseif state == "disembark" then
         if (confirm(key) or key == "e" or key == "a") and not isrepeat then Dis.skip() end

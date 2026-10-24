@@ -1,3 +1,4 @@
 *.love
 dist/
 __pycache__/
+tests/game_dbg9.lua

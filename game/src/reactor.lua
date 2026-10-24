@@ -28,7 +28,7 @@ function R.keypressed(key,isrepeat)
             if st.phase[1]==TARGET[1] and st.phase[2]==TARGET[2] and st.phase[3]==TARGET[3] then
                 st.solved=true; st.console=false; st.message=T("r_lock"); st.msgT=4; st.doneT=0
             else say(T("r_bad"),3.5); st.flash=0.6 end
-        elseif key=="escape" or key=="x" then st.console=false; say(T("r_standby"),3) end
+        elseif key=="x" then st.console=false; say(T("r_standby"),3) end
         return
     end
     if key=="left" or key=="q" then st.x=math.max(42,st.x-34); st.facing=-1
