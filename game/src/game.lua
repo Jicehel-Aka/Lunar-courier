@@ -11,6 +11,7 @@ local Station = require("src.station")
 local Signal  = require("src.signal")
 local Dis     = require("src.disembark")
 local Reactor = require("src.reactor")
+local Communications = require("src.communications")
 local Game = {}
 
 local W, H = 640, 480
@@ -418,7 +419,7 @@ local function updateExplore(dt)
     local keys = I.moveKeys()
     local oldX = explore.x
     local moving = false
-    local frozen = Station.s.mode ~= "walk"
+    local frozen = (explore.site == "comms") and (Communications.s.mode ~= "walk") or (explore.site ~= "comms" and Station.s.mode ~= "walk")
     if not frozen and anyDown(keys.left) then
         explore.x = explore.x - 145*dt
         explore.facing = -1
@@ -429,7 +430,8 @@ local function updateExplore(dt)
         explore.facing = 1
         moving = true
     end
-    explore.x = clamp(explore.x, Station.minX(), Station.maxX())
+    if explore.site == "comms" then explore.x = clamp(explore.x, Communications.minX(), Communications.maxX())
+    else explore.x = clamp(explore.x, Station.minX(), Station.maxX()) end
     explore.vx = dt > 0 and (explore.x-oldX)/dt or 0
     if moving and explore.y == 0 and (explore.vy or 0) == 0 then
         explore.walkT = (explore.walkT or 0) + dt * (math.abs(explore.vx) > 1 and 10 or 0)
@@ -450,10 +452,16 @@ local function updateExplore(dt)
         explore.grounded = true
     end
     explore.landT = math.max(0, (explore.landT or 0)-dt)
-    Station.update(dt, explore)
-    local sm, sd = Station.takeMsg()
-    if sm then toast, toastT = sm, sd end
-    explore.repairs, explore.repaired, explore.logRead = Station.s.repairs, Station.s.solved, Station.s.logRead
+    if explore.site == "comms" then
+        Communications.update(dt, explore)
+        local sm, sd = Communications.takeMsg()
+        if sm then toast, toastT = sm, sd end
+    else
+        Station.update(dt, explore)
+        local sm, sd = Station.takeMsg()
+        if sm then toast, toastT = sm, sd end
+        explore.repairs, explore.repaired, explore.logRead = Station.s.repairs, Station.s.solved, Station.s.logRead
+    end
     Audio.thrust(false)
 end
 
@@ -1568,8 +1576,8 @@ function Game.draw()
     elseif state == "title" then
         drawSky(); drawRidges(); drawTerrain(); drawTitle()
     elseif state == "explore" then
-        -- Station Argo : pieces dessinees par src/station.lua (primitives AKA-Love)
-        Station.draw(explore)
+        -- M3 : Station Argo. M9 : relais de communications, meme controle d'exploration.
+        if explore.site == "comms" then Communications.draw(explore) else Station.draw(explore) end
         -- Explorateur : sprite propre si disponible, sinon rendu de secours existant.
         local px=math.floor(explore.x)
         local py=math.floor(explore.y or 0)
@@ -1661,13 +1669,14 @@ function Game.draw()
         -- HUD diegetique
         panel(22,20,596,64)
         color(79,221,213); rect(36,34,4,34)
-        centered("STATION ARGO  "..Station.s.room.."/"..Station.ROOMS, 34, fonts.f24, {135,239,231})
-        local objective = Station.objective()
+        centered(explore.site == "comms" and ("RELAIS DE COMMUNICATIONS  "..Communications.s.room.."/3") or ("STATION ARGO  "..Station.s.room.."/"..Station.ROOMS), 34, fonts.f24, {135,239,231})
+        local objective = explore.site == "comms" and Communications.objective() or Station.objective()
         centered(objective, 65, fonts.f16, {214,225,230})
         -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
         -- Tout est en police 16 (8 px reels sur l'AKA) ; 24 caracteres par ligne au maximum.
         local cx, cy, cw, ch = 24, 96, 424, 150
-        if Station.s.mode == "walk" then
+        local siteMode = explore.site == "comms" and Communications.s.mode or Station.s.mode
+        if siteMode == "walk" then
         panel(cx, cy, cw, ch)
         color(43,205,211); rect(cx+10, cy+27, cw-20, 1)
         love.graphics.setFont(fonts.f16.obj)
@@ -1675,7 +1684,7 @@ function Game.draw()
         love.graphics.printf("LUNA // SIGNAL INSTABLE", cx+14, cy+7, cw-28, "left")
         local msg
         if toastT > 0 and toast ~= "" then msg = toast
-        else msg = Station.hint() end
+        else msg = explore.site == "comms" and Communications.hint() or Station.hint() end
         if msg ~= explore.msg or explore.t < (explore.msgT0 or 0) then
             explore.msg, explore.msgT0 = msg, explore.t
             -- retour a la ligne manuel (calcule une seule fois par message) : le texte ne bouge pas en s'ecrivant
@@ -1701,7 +1710,7 @@ function Game.draw()
         color(255,190,98)
         love.graphics.printf("E : AGIR  ESPACE : SAUT", cx+14, cy+ch-24, cw-28, "left")
         end
-        Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj})
+        if explore.site ~= "comms" then Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj}) end
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
     elseif state == "reactor" then
         Reactor.draw({color=color, rect=rect, panel=panel, centered=centered, f8=fonts.f8, f16=fonts.f16, f24=fonts.f24, aka=I.aka})
@@ -1783,6 +1792,14 @@ local function afterDebrief()
                         explore.nextI = nextI
                         Reactor.reset()
                         state = "reactor"
+                    elseif from == 9 then
+                        explore.site = "comms"
+                        explore.nextI = nextI
+                        explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
+                        explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
+                        explore.facing, explore.grounded = 1, true
+                        Communications.reset()
+                        state = "explore"
                     else
                         unloadExplorerSprites()
                         explore.nextI = nextI
@@ -1923,10 +1940,13 @@ function Game.keypressed(key, scancode, isrepeat)
         local ev = Reactor.keypressed(key, isrepeat)
         if ev == "done" then beginMission(explore.nextI or 6) end
     elseif state == "explore" then
-        if Station.s.mode ~= "walk" then
+        local siteMode = explore.site == "comms" and Communications.s.mode or Station.s.mode
+        if siteMode ~= "walk" then
+            if explore.site ~= "comms" then
             local _, ev = Station.key(key)
             if ev and (ev == "move" or not isrepeat) then
                 Audio.play(ev == "bad" and "warn" or (ev == "solved" and "pickup" or "menu"))
+            end
             end
             return
         end
@@ -1937,10 +1957,17 @@ function Game.keypressed(key, scancode, isrepeat)
             Audio.play("menu")
         elseif (key == "e" or key == "a") and not isrepeat then
             explore.interactT = 0.62
-            local m, ev = Station.interact(explore.x)
+            local m, ev
+            if explore.site == "comms" then m, ev = Communications.interact(explore.x)
+            else m, ev = Station.interact(explore.x) end
             if m then toast, toastT = m, 5 end
             if ev then Audio.play("menu") end
-            if ev == "exit" then
+            if ev == "signal" then
+                unloadExplorerSprites()
+                explore.site = nil
+                Signal.start(9)
+                state = "signal"
+            elseif ev == "exit" then
                 unloadExplorerSprites()
                 if explore.campaign then
                     explore.campaign = false
