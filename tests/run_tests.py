@@ -184,7 +184,7 @@ Game._ship = function() return {x=ship.x, y=ship.y, vx=ship.vx, vy=ship.vy, angl
 Game._begin = function(i) beginMission(i) end
 Game._explore = function() require('src.station').reset(); loadExplorerSprites(); explore.x, explore.y, explore.vy, explore.t = 100, 0, 0, 0; explore.repaired, explore.repairs, explore.campaign = false, 0, false; state = 'explore' end
 Game._tp = function(x) explore.x = x end
-Game._interior = function(kind) require('src.communications').reset(kind); explore.site = 'comms'; explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0; state = 'explore' end
+Game._interior = function(kind) require('src.communications').reset(kind); explore.site = 'comms'; explore.leaveT = nil; explore.nextI = 2; explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0; state = 'explore' end
 Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
 Game._sg = function() local S = require('src.signal').s; return {f=S.f, p=S.p, tf=S.c.tf, tp=S.c.tp, locked=S.locked, match=S.match or 0, mul=explore.nextMul or 1} end
 Game._cm = function() local C = require('src.communications').s; return {room=C.room, checked=C.checked, repaired=C.repaired, d1=C.doors[1], d2=C.doors[2], mode=C.mode, kind=C.kind, s1=C.step[1], s2=C.step[2], s3=C.step[3], leave=explore.leaveT} end
@@ -333,6 +333,12 @@ txt_errs = lua.eval('''(function()
           if k:find("_obj") and #v > 38 then out[#out+1] = l.." "..k.." objectif "..#v.." > 38" end
           if k:find("_header") and #v > 28 then out[#out+1] = l.." "..k.." titre "..#v.." > 28" end
           if (k:find("_intro") or k:find("_act") or k:find("^gen_")) and wrapn(v, 24) > 4 then out[#out+1] = l.." "..k.." > 4 lignes de 24" end
+          local w = v:gsub("%%%%", "%%"):gsub("%%[sd]", "AA")
+          if (k:find("^sg_[id]%d") or k:find("^sg_[hp]")) and wrapn(w, 30) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 30" end
+          if (k:find("^st_[rpa]%d") or k:find("^st_m_") or k=="st_dark" or k=="st_solved" or k=="st_over") and wrapn(w, 24) > 4 then out[#out+1] = l.." "..k.." > 4 lignes de 24" end
+          if (k:find("^r_msg") or k=="r_lock" or k=="r_bad" or k=="r_standby" or k=="r_ins" or k=="r_home" or k=="r_help" or k=="r_inplace") and wrapn(w, 31) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 31" end
+          if (k:find("^ci_s%d") and #v > 22) or (k:find("^ci_p%d") and #v > 28) then out[#out+1] = l.." "..k.." trop long" end
+          if (k:find("^st_h") or k:find("^r_o%d") or k:find("^sg_t%d")) and #v > 38 then out[#out+1] = l.." "..k.." > 34" end
           if k:find("^dis_") and wrapn(v, 34) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 34" end
         end
       end

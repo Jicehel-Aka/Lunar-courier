@@ -1,13 +1,14 @@
 -- Cinematiques de fin de chapitre : animation procedurale, sans images ni alpha.
 -- Surface logique 640x480, reduite en 320x240 sur Gamebuino AKA.
 local C = {}
+local function T(...) return require("src.i18n").t(...) end
 local S = {active=false, chapter=1, t=0, nextI=1}
 C.s = S
 
 local CH = {
-    [1] = {mission=6, title="CHAPITRE 1", sub="LA LUNE SE REVEILLE", sky={4,12,28}, accent={53,215,211}},
-    [2] = {mission=12, title="CHAPITRE 2", sub="LE RETOUR DE VARGA", sky={5,9,24}, accent={255,190,79}},
-    [3] = {mission=18, title="CHAPITRE 3", sub="LA DERNIERE LUMIERE", sky={3,8,22}, accent={120,240,225}},
+    [1] = {mission=6, sky={4,12,28}, accent={53,215,211}},
+    [2] = {mission=12, sky={5,9,24}, accent={255,190,79}},
+    [3] = {mission=18, sky={3,8,22}, accent={120,240,225}},
 }
 function C.start(chapter, nextI)
     S.active, S.chapter, S.t, S.nextI = true, chapter, 0, nextI
@@ -86,12 +87,12 @@ function C.draw(ui, lang, prompt)
     -- Cartouche et progression en trois temps.
     col(g,3,12,27); rect(g,36,34,568,104)
     col(g,ch.accent[1],ch.accent[2],ch.accent[3]); rect(g,36,34,568,3); rect(g,36,135,568,2)
-    g.setFont(ui.f32); col(g,235,244,248); g.printf(ch.title,52,47,536,"center")
-    g.setFont(ui.f24); col(g,ch.accent[1],ch.accent[2],ch.accent[3]); g.printf(ch.sub,52,91,536,"center")
+    g.setFont(ui.f32); col(g,235,244,248); g.printf(T("ci_chap", S.chapter),52,47,536,"center")
+    g.setFont(ui.f24); col(g,ch.accent[1],ch.accent[2],ch.accent[3]); g.printf(T("ci_s"..S.chapter),52,91,536,"center")
     if t>3 then
         col(g,3,12,27); rect(g,84,386,472,46)
         col(g,ch.accent[1],ch.accent[2],ch.accent[3]); rect(g,84,386,math.floor(472*math.min(1,t/18)),2)
-        g.setFont(ui.f16); col(g,205,222,231); g.printf(t<7 and "LA ROUTE S'ALLUME..." or (t<13 and "LE VOYAGE CONTINUE" or "UNE NOUVELLE AUBE"),96,402,448,"center")
+        g.setFont(ui.f16); col(g,205,222,231); g.printf(T(t<7 and "ci_p1" or (t<13 and "ci_p2" or "ci_p3")),96,402,448,"center")
     end
     if t>=5 then
         g.setFont(ui.f16); col(g,255,190,79); g.printf(prompt,40,448,560,"center")

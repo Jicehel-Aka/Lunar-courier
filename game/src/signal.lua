@@ -4,20 +4,13 @@
 -- Indices a l'ecran : jauge de signal et sens de correction de la frequence.
 -- Rectangles uniquement, texte ASCII, aucune entree autre que la croix directionnelle.
 local Sg = {}
+local function T(...) return require("src.i18n").t(...) end
 
 local CFG = {
-    [5] = {title="SAS DU COEUR", intro="Le sas attend le code du module. Accordez votre signal sur le sien.",
-           done="Le sas reconnait le code. LUNA : consommation reduite de 15 % au prochain vol.",
-           tf=3.0, tp=0.30, f0=1.5, p0=0.0, tol=0.16, hint=true, bonus=0.85},
-    [9] = {title="MESSAGE DE VARGA", intro="Le message est brouille. Accordez le recepteur sur la face cachee.",
-           done="Message recu : 'Apporte-moi de l'energie.' LUNA : consommation reduite de 20 %.",
-           tf=4.4, tp=0.65, f0=5.6, p0=0.10, tol=0.12, hint=true, bonus=0.80},
-    [15] = {title="LES LUCIOLES", intro="Les drones emettent un motif lumineux. Accordez les balises pour suivre leur route.",
-            done="Les Lucioles ouvrent la route du nord. LUNA : je reconnais ce motif... mais pourquoi ?",
-            tf=2.7, tp=0.42, f0=5.4, p0=0.05, tol=0.15, hint=true, bonus=0.95},
-    [17] = {title="LE COEUR DU PHARE", intro="Le Phare attend la signature de LUNA. Accordez le noyau avant le dernier vol.",
-            done="LUNA : Signature confirmee. Je suis prete, pilote. Allons jusqu'au sommet.",
-            tf=5.1, tp=0.54, f0=2.0, p0=0.02, tol=0.13, hint=true, bonus=0.90},
+    [5] = {tf=3.0, tp=0.30, f0=1.5, p0=0.0, tol=0.16, hint=true, bonus=0.85},
+    [9] = {tf=4.4, tp=0.65, f0=5.6, p0=0.10, tol=0.12, hint=true, bonus=0.80},
+    [15] = {tf=2.7, tp=0.42, f0=5.4, p0=0.05, tol=0.15, hint=true, bonus=0.95},
+    [17] = {tf=5.1, tp=0.54, f0=2.0, p0=0.02, tol=0.13, hint=true, bonus=0.90},
 }
 Sg.CFG = CFG
 
@@ -92,9 +85,9 @@ function Sg.draw(ui)
     ui.color(3, 8, 19); ui.rect(0, 0, 640, 24); ui.rect(0, 456, 640, 24); ui.rect(0, 24, 40, 432); ui.rect(600, 24, 40, 432)
     ui.panel(40, 24, 560, 432)
     g.setFont(ui.f24)
-    ui.color(135, 239, 231); g.printf("ACCORDER LE SIGNAL", 40, 40, 560, "center")
+    ui.color(135, 239, 231); g.printf(T("sg_head"), 40, 40, 560, "center")
     g.setFont(ui.f16)
-    ui.color(255, 177, 78); g.printf(c.title, 40, 74, 560, "center")
+    ui.color(255, 177, 78); g.printf(T("sg_t"..st.mission), 40, 74, 560, "center")
     -- ecran des courbes
     ui.color(9, 23, 40); ui.rect(80, 104, 480, 170)
     ui.color(30, 70, 84); ui.rect(80, 189, 480, 1)
@@ -111,7 +104,7 @@ function Sg.draw(ui)
         ui.rect(X0 + k * STEP - 2, yp - 2, 4, 4)
     end
     -- jauge de signal (20 cases)
-    ui.color(214, 225, 230); g.printf("SIGNAL", 80, 290, 120, "left")
+    ui.color(214, 225, 230); g.printf(T("sg_lbl"), 80, 290, 120, "left")
     local cells = math.floor((st.match or 0) * 20 + 0.5)
     for k = 1, 20 do
         if k <= cells then
@@ -122,19 +115,19 @@ function Sg.draw(ui)
     -- indices
     ui.color(206, 222, 230)
     local msg
-    if st.locked then msg = c.done
-    elseif (st.t or 0) < 6 then msg = c.intro
+    if st.locked then msg = T("sg_d"..st.mission)
+    elseif (st.t or 0) < 6 then msg = T("sg_i"..st.mission)
     elseif c.hint then
         if math.abs(st.f - c.tf) > 0.12 then
-            msg = st.f > c.tf and "FREQUENCE TROP HAUTE : ralentissez (gauche)." or "FREQUENCE TROP BASSE : accelerez (droite)."
-        elseif st.gap and st.gap > c.tol then msg = "Bonne frequence. Ajustez la phase (haut/bas)."
-        else msg = "Ne bougez plus..." end
+            msg = T(st.f > c.tf and "sg_hi" or "sg_lo")
+        elseif st.gap and st.gap > c.tol then msg = T("sg_ph")
+        else msg = T("sg_hold") end
     end
     local lines = wrapText(msg, 30)
     for i = 1, math.min(3, #lines) do g.printf(lines[i], 70, 326 + (i - 1) * 22, 500, "left") end
     ui.color(255, 190, 98)
-    g.printf("GAUCHE/DROITE : FREQUENCE", 70, 400, 500, "left")
-    g.printf("HAUT/BAS : PHASE", 70, 422, 500, "left")
+    g.printf(T("sg_k1"), 70, 400, 500, "left")
+    g.printf(T("sg_k2"), 70, 422, 500, "left")
 end
 
 return Sg
