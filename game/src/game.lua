@@ -12,6 +12,7 @@ local Signal  = require("src.signal")
 local Dis     = require("src.disembark")
 local Reactor = require("src.reactor")
 local Communications = require("src.communications")
+local Interiors = require("src.interiors")
 local Cinematic = require("src.cinematic")
 local Perf = require("src.perf")
 local Game = {}
@@ -435,6 +436,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Mise a jour
 -- ---------------------------------------------------------------------------
+local interiorDone   -- definie plus bas (a besoin de showCards)
 local function updateExplore(dt)
     explore.t = explore.t + dt
     local keys = I.moveKeys()
@@ -482,6 +484,11 @@ local function updateExplore(dt)
         local sm, sd = Station.takeMsg()
         if sm then toast, toastT = sm, sd end
         explore.repairs, explore.repaired, explore.logRead = Station.s.repairs, Station.s.solved, Station.s.logRead
+    end
+    -- Fin d'une scene a pied (M10-M12) : on laisse lire le dernier message avant de poursuivre.
+    if explore.leaveT then
+        explore.leaveT = explore.leaveT - dt
+        if explore.leaveT <= 0 then explore.leaveT = nil; interiorDone() end
     end
     Audio.thrust(false)
 end
@@ -1819,6 +1826,20 @@ backToTitle = function()
     state = "title"
 end
 
+-- Fin d'une scene a pied de M10-M12 : M12 enchaine les cartes d'apres (reveil de Varga) puis la cinematique.
+interiorDone = function()
+    toastT = 0
+    unloadExplorerSprites()
+    local kind = Communications.s and Communications.s.kind
+    explore.site = nil
+    if kind == "caisson" then
+        showCards(12, "post2", function() Cinematic.start(2, explore.nextI); state = "cinematic" end,
+                  Data.missions[12].sky, "card_nextm")
+    else
+        beginMission(explore.nextI)
+    end
+end
+
 local function afterDebrief()
     local m = mission()
     local nextI = missionIndex + 1
@@ -1827,7 +1848,6 @@ local function afterDebrief()
     else
         showCards(missionIndex, "post", function()
             if missionIndex == 6 then Cinematic.start(1, nextI); state = "cinematic"; return end
-            if missionIndex == 12 then Cinematic.start(2, nextI); state = "cinematic"; return end
             local site = Dis.siteFor(missionIndex)
             if site then
                 local from = missionIndex
@@ -1844,13 +1864,14 @@ local function afterDebrief()
                         explore.nextI = nextI
                         Reactor.reset()
                         state = "reactor"
-                    elseif from == 9 then
+                    elseif from == 9 or Interiors.kindOfMission[from] then
                         explore.site = "comms"
                         explore.nextI = nextI
+                        explore.leaveT = nil
                         explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
                         explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
                         explore.facing, explore.grounded = 1, true
-                        Communications.reset()
+                        Communications.reset(Interiors.kindOfMission[from])
                         state = "explore"
                     else
                         unloadExplorerSprites()
@@ -2028,7 +2049,9 @@ function Game.keypressed(key, scancode, isrepeat)
             else m, ev = Station.interact(explore.x) end
             if m and ev ~= "signal" then toast, toastT = m, 5 end
             if ev then Audio.play("menu") end
-            if ev == "signal" then
+            if ev == "done" then
+                explore.leaveT = 4.5
+            elseif ev == "signal" then
                 toastT = 0
                 unloadExplorerSprites()
                 explore.site = nil

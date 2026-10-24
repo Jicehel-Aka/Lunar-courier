@@ -186,7 +186,7 @@ D.art = {
  {pre={"soleil"}, post={"tour"}},
  {pre={"epave"}, post={"asteroides"}},
  {pre={"cargo"}, post={"hangar"}},
- {pre={"depart"}, post={"cratere","grotte","base"}},
+ {pre={"depart"}, post={"cratere"}, post2={"grotte","base"}},
  {pre={"aube","camp","ruines","faisceau","depart"}, post={"ville"}},
  {pre={"soleil"}, post={"radar"}},
  {pre={"mine"}, post={"cratere"}},

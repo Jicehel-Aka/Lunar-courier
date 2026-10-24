@@ -113,6 +113,8 @@ return {
   },
   post={
    {"INCOMING TRANSMISSION", "Argo-2 lights up all at once. The far-side beacons join the network: for the first time, the whole Moon shines in the night."},
+  },
+  post2={
    {"THE POD OPENS", "The pod opens in a breath of frost. Commander Ines Varga opens her eyes.\n\nVARGA : Eleven years... You took your time, Courier.\n\nThen, more softly, she adds:\n\nVARGA : There is one last package to deliver."},
    {"END OF CHAPTER 2", "The network is complete, from the near side to the far side. On the Argo-2 platform, two silhouettes watch the road of light stretch north, toward a mountain nobody ever stopped aiming for."},
   },

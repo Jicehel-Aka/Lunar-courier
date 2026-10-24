@@ -22,11 +22,14 @@ local T_WALK = T_LADDER + 2.2    -- zoom 1:1 atteint ici
 local WALK_SPEED = 120
 
 local SITES = {
-    argo  = {door=820, text="LUNA : Sas exterieur de la station Argo. Entrez, pilote. Je reste en ligne."},
-    coeur = {door=830, text="LUNA : Le Coeur Silencieux. Le module est sur vous : le sas devrait reconnaitre son code."},
-    varga = {door=820, text="LUNA : Le campement de Varga. Tout est intact, comme si elle venait de partir."},
+    argo    = {door=820, key="dis_argo"},
+    coeur   = {door=830, key="dis_coeur"},
+    varga   = {door=820, key="dis_varga"},
+    epave   = {door=810, key="dis_epave"},
+    argo2   = {door=820, key="dis_argo2"},
+    caisson = {door=820, key="dis_caisson"},
 }
-local SITE_OF = {[3]="argo", [5]="coeur", [9]="varga"}
+local SITE_OF = {[3]="argo", [5]="coeur", [9]="varga", [10]="epave", [11]="argo2", [12]="caisson"}
 function D.siteFor(mission) return SITE_OF[mission] end
 
 local st = {active=false}
@@ -155,8 +158,33 @@ local function front_varga(ui, dx, open)
     c(150, 175, 185); r(dx - 66, 376, 2, 18)
 end
 
+-- Epave d'evacuation (M10) : meme porte que la station, coque brune et tolee tordue.
+local function back_epave(ui, dx, open)
+    local c, r = ui.color, ui.rect
+    c(34, 26, 26); r(dx - 110, G - 600, 2400, 600 + 18)
+    c(58, 44, 40); r(dx - 110, G - 600, 2400, 10); r(dx - 110, G - 170, 2400, 6)
+    c(24, 18, 18); r(dx - 250, 380, 90, 40); r(dx - 214, 356, 6, 26); r(dx - 180, 396, 60, 24)
+    c(150, 70, 40); r(dx - 100, 272, 6, 6)
+    c(7, 10, 14); r(dx - 22, 336, 44, WALL_BOTTOM - 336)
+    if open > 0 then
+        c(110, 76, 48); r(dx - 18 + math.floor(18 * (1 - open)), 340, 36 - math.floor(36 * (1 - open)), WALL_BOTTOM - 340)
+    end
+    c(86, 66, 58); r(dx - 26, 332, 52, 4); r(dx - 26, 332, 4, WALL_BOTTOM - 332); r(dx + 22, 332, 4, WALL_BOTTOM - 332)
+    local half = math.floor(20 * (1 - open))
+    c(60, 46, 42); r(dx - 22, 336, half, WALL_BOTTOM - 336); r(dx + 22 - half, 336, half, WALL_BOTTOM - 336)
+    c(255, 120, 50); r(dx - 3, 322, 6, 5)
+    c(12, 10, 12); r(dx - 26, WALL_BOTTOM - 4, 52, 4)
+end
+local function front_epave(ui, dx, open)
+    local c, r = ui.color, ui.rect
+    c(34, 26, 26); r(dx + 26, G - 600, 2400, 600 + 18)
+    c(58, 44, 40); r(dx + 26, G - 600, 2400, 10); r(dx + 26, G - 170, 2400, 6)
+    c(12, 10, 12); r(dx + 26, WALL_BOTTOM - 4, 2400, 4)
+end
+
 local DRAW = {
     argo = {back_argo, front_argo}, coeur = {back_coeur, front_coeur}, varga = {back_varga, front_varga},
+    epave = {back_epave, front_epave}, argo2 = {back_argo, front_argo}, caisson = {back_argo, front_argo},
 }
 
 -- Porte du vaisseau, coursive et echelle (monde, vaisseau en x=0).
@@ -238,7 +266,7 @@ function D.draw(ui)
     c(255, 177, 78); g.setFont(ui.f16)
     g.printf("LUNA // TRANSMISSION", 36, 22, 570, "left")
     c(206, 222, 230)
-    local lines = wrapText(st.cfg.text, 34)
+    local lines = wrapText(require("src.i18n").t(st.cfg.key), 34)
     local shown = math.floor(t * 40)
     for i = 1, math.min(3, #lines) do
         if shown > 0 then g.printf(lines[i]:sub(1, shown), 36, 44 + (i - 1) * 18, 570, "left") end

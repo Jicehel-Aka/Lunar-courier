@@ -184,9 +184,10 @@ Game._ship = function() return {x=ship.x, y=ship.y, vx=ship.vx, vy=ship.vy, angl
 Game._begin = function(i) beginMission(i) end
 Game._explore = function() require('src.station').reset(); loadExplorerSprites(); explore.x, explore.y, explore.vy, explore.t = 100, 0, 0, 0; explore.repaired, explore.repairs, explore.campaign = false, 0, false; state = 'explore' end
 Game._tp = function(x) explore.x = x end
+Game._interior = function(kind) require('src.communications').reset(kind); explore.site = 'comms'; explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0; state = 'explore' end
 Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
 Game._sg = function() local S = require('src.signal').s; return {f=S.f, p=S.p, tf=S.c.tf, tp=S.c.tp, locked=S.locked, match=S.match or 0, mul=explore.nextMul or 1} end
-Game._cm = function() local C = require('src.communications').s; return {room=C.room, checked=C.checked, repaired=C.repaired, d1=C.doors[1], d2=C.doors[2], mode=C.mode} end
+Game._cm = function() local C = require('src.communications').s; return {room=C.room, checked=C.checked, repaired=C.repaired, d1=C.doors[1], d2=C.doors[2], mode=C.mode, kind=C.kind, s1=C.step[1], s2=C.step[2], s3=C.step[3], leave=explore.leaveT} end
 Game._sgset = function(f,p) local S = require('src.signal').s; S.f, S.p = f, p end
 Game._dis = function() local D = require('src.disembark').s; return {t=D.t or 0, active=D.active and 1 or 0} end
 Game._title = function() state = 'title'; buildMenu() end
@@ -271,7 +272,7 @@ for lang in ("fr","en","pt","de","es","it"):
     name, obj = m['name'], m['objective']
     if len(name) > 20: problems.append(f"{lang} M{i} name too long {len(name)}: {name}")
     if len(obj) > 26: problems.append(f"{lang} M{i} objective too long {len(obj)}: {obj}")
-    for kind in ('pre','post'):
+    for kind in ('pre','post','post2'):
         cards = m[kind]
         if cards is None: continue
         for j in range(1, len(cards)+1):
@@ -297,7 +298,8 @@ art_errs = lua.eval('''(function()
     else
       if #a.pre ~= #(require('src.i18n').mission(i).pre or {}) then out[#out+1] = "M"..i..": art.pre count "..#a.pre.." != cards "..#(require('src.i18n').mission(i).pre or {}) end
       if #a.post ~= #(require('src.i18n').mission(i).post or {}) then out[#out+1] = "M"..i..": art.post count "..#a.post.." != cards "..#(require('src.i18n').mission(i).post or {}) end
-      for _,l in ipairs{a.pre, a.post} do for _,n in ipairs(l) do
+      if #(a.post2 or {}) ~= #(require('src.i18n').mission(i).post2 or {}) then out[#out+1] = "M"..i..": art.post2 count != cards" end
+      for _,l in ipairs{a.pre, a.post, a.post2 or {}} do for _,n in ipairs(l) do
         local f = io.open(ROOT.."/assets/scenes/"..n..".png", "rb")
         if not f then out[#out+1] = "M"..i..": missing image "..n else f:close() end
       end end
@@ -306,6 +308,39 @@ art_errs = lua.eval('''(function()
   return table.concat(out, "; ") end)()''')
 if art_errs: problems.append("art: " + art_errs)
 print(f"{nm} missions, {ncards} story cards; content problems:", problems or "none")
+# ---- textes des interieurs (M10-M12), du debarquement et complements : toutes langues, memes cles, ASCII, longueurs
+txt_errs = lua.eval('''(function()
+  local out = {}
+  local function wrapn(t, n)
+    local lines, cur = 0, ""
+    for w in t:gmatch("%S+") do
+      if #cur > 0 and #cur + 1 + #w > n then lines = lines + 1; cur = w else cur = (#cur > 0) and (cur.." "..w) or w end
+    end
+    if #cur > 0 then lines = lines + 1 end
+    return lines
+  end
+  local I = require("src.i18n")
+  for _, file in ipairs{"src.interiors_text", "src.texts_extra"} do
+    local T = require(file)
+    for _, l in ipairs(I.langs) do
+      local t = T[l]
+      if not t then out[#out+1] = file.." : langue "..l.." absente"
+      else
+        for k in pairs(T.fr) do if not t[k] then out[#out+1] = file.." "..l.." : cle "..k.." manquante" end end
+        for k, v in pairs(t) do
+          if not T.fr[k] then out[#out+1] = file.." "..l.." : cle "..k.." inconnue du francais" end
+          if v:find("[\\128-\\255]") then out[#out+1] = file.." "..l.." "..k.." non ASCII" end
+          if k:find("_obj") and #v > 38 then out[#out+1] = l.." "..k.." objectif "..#v.." > 38" end
+          if k:find("_header") and #v > 28 then out[#out+1] = l.." "..k.." titre "..#v.." > 28" end
+          if (k:find("_intro") or k:find("_act") or k:find("^gen_")) and wrapn(v, 24) > 4 then out[#out+1] = l.." "..k.." > 4 lignes de 24" end
+          if k:find("^dis_") and wrapn(v, 34) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 34" end
+        end
+      end
+    end
+  end
+  return table.concat(out, "\\n")
+end)()''')
+if txt_errs: problems.append("textes: " + txt_errs.replace("\n", " | "))
 CONTENT = problems
 
 # ---------------------------------------------------------------- 2. ecrans
@@ -424,7 +459,7 @@ def run_disembark(mi, natural):
         if n >= 900 or n < 150: print("DISEMBARK FAIL: duree anormale", n); FAILED.append("disembark length M%d" % mi); ok = False
     else:
         key('a'); step(2)
-    want = {3: 'explore', 5: 'reactor', 9: 'explore'}.get(mi, 'signal')
+    want = {3: 'explore', 5: 'reactor', 9: 'explore', 10: 'explore', 11: 'explore', 12: 'explore'}.get(mi, 'signal')
     if dbg()['state'] != want: print("DISEMBARK FAIL: attendu", want, "obtenu", dbg()['state']); FAILED.append("disembark exit M%d" % mi); ok = False
     return ok
 
@@ -457,6 +492,33 @@ def run_comms():
     # Salle 3 : interaction avec le recepteur ouvre le mini-jeu, sans le court-circuiter.
     tp(470); key('e'); step(1)
     need(dbg()['state']=='signal', "le recepteur lance le mini-jeu de signal")
+    return ok
+
+def run_interior(mi, lang="fr"):
+    """M10/M11/M12 : trois salles, une console par salle ; la derniere lance la suite apres un delai de lecture."""
+    G = 'require("src.game")'
+    kind = {10: "wreck", 11: "argo2", 12: "caisson"}[mi]
+    marker = {1: 470, 2: 310, 3: 300 if kind == "wreck" else 470}
+    ok = True
+    def cm():
+        t = lua.eval(G + '._cm()'); return {k: t[k] for k in ('room','mode','kind','s1','s2','s3','leave')}
+    def tp(x): lua.execute(G + '._tp(%d)' % x)
+    def need(cond, label):
+        nonlocal ok
+        if not cond: print("INTERIOR FAIL:", label, cm(), dbg()['state']); FAILED.append(f"interieur M{mi}: {label}"); ok = False
+    need(cm()['kind'] == kind, "type de scene")
+    for r in (1, 2, 3):
+        need(cm()['room'] == r, f"salle {r}")
+        tp(marker[r] + 120); key('e'); step(1)             # trop loin : message, rien ne se passe
+        need(not cm()['s%d' % r], f"console de la salle {r} trop loin")
+        tp(marker[r]); key('e'); step(1)
+        need(cm()['s%d' % r], f"console de la salle {r}")
+        if r < 3:
+            tp(500); hold('right', True); step(30); hold('right', False); step(25)
+    need(cm()['leave'] is not None, "fin de scene en attente")
+    step(140)
+    want = 'card' if mi != 12 else 'card'
+    need(dbg()['state'] == want, f"suite apres la scene ({dbg()['state']})")
     return ok
 
 def run_reactor():
@@ -608,7 +670,7 @@ for mi in range(1, nm+1):
     d=dbg()
     # M03 ouvre une sequence d'exploration avant M04 : reparer les 3 relais puis lire le terminal.
     # Simule les commandes joueur au lieu de sauter l'interlude narratif.
-    if mi in (3, 5, 9):
+    if mi in (3, 5, 9, 10, 11, 12):
         if d['state'] != 'disembark':
             print("expected disembark after M%d, got" % mi, d['state']); FAILED.append("disembark missing M%d" % mi)
         else:
@@ -621,6 +683,15 @@ for mi in range(1, nm+1):
             FAILED.append("station interlude")
     if mi == 9 and d['state'] == 'explore':
         run_comms(); d = dbg()
+    if mi in (10, 11, 12) and d['state'] == 'explore':
+        run_interior(mi); d = dbg()
+        if mi == 12:                                  # cartes du reveil de Varga, puis cinematique du chapitre 2
+            g = 0
+            while dbg()['state'] in ('card', 'cinematic') and g < 20:
+                if dbg()['state'] == 'cinematic':
+                    CINE.append(mi); step(160)
+                key('space'); step(1); g += 1
+            d = dbg()
     if mi == 5 and d['state'] == 'reactor':
         run_reactor(); d = dbg()
     elif mi in (5, 9):
