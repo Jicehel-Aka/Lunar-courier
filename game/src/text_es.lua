@@ -151,6 +151,7 @@ return {
 -- M16
  {name="GARGANTA SOMBRIA", objective="Cruza la garganta",
   pre={
+   {"RED RESTAURADA", "Las Luciernagas sincronizaron las balizas. El rele Argo envia por fin un pulso a la Tierra. Se abre una ventana de transmision.\n\nLUNA : La red vuelve a tener energia. Alguien responde."},
    {"CENTRO LAGRANGE", "CONTROL : ...aqui Centro Lagrange, respondan... Piloto, recibimos sus balizas desde esta manana. Creiamos perdida la Luna. Quien es usted?\n\nLUNA : Aqui el Courier, nave de reparto lunar. Estamos encendiendo el camino."},
    {"CENTRO LAGRANGE", "CONTROL : Soy Theo Marchand, controlador. Sus balizas parpadean en codigo desde hace once anos. Una palabra, repetida. Tardamos en leerla.\n\nCONTROL : VIVOS. Decia: VIVOS."},
    {"BRIEFING", "LUNA : Garganta Sombria. Los rayos rebotan en las paredes: tres destellos, tres ritmos.\n\nLUNA : Cuelate entre los destellos, piloto. Un roce y pierdes casco, no la calma."},
