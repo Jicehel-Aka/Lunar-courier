@@ -7,6 +7,7 @@ local Audio = require("src.audio")
 local Save  = require("src.save")
 local Art   = require("src.art")
 local I     = require("src.i18n")
+local Station = require("src.station")
 local Game = {}
 
 local W, H = 640, 480
@@ -433,16 +434,18 @@ function Game.update(dt)
         local keys = I.moveKeys()
         local oldX = explore.x
         local moving = false
-        if anyDown(keys.left) then
-            explore.x = math.max(42, explore.x - 145*dt)
+        local frozen = Station.s.mode ~= "walk"
+        if not frozen and anyDown(keys.left) then
+            explore.x = explore.x - 145*dt
             explore.facing = -1
             moving = true
         end
-        if anyDown(keys.right) then
-            explore.x = math.min(598, explore.x + 145*dt)
+        if not frozen and anyDown(keys.right) then
+            explore.x = explore.x + 145*dt
             explore.facing = 1
             moving = true
         end
+        explore.x = clamp(explore.x, Station.minX(), Station.maxX())
         explore.vx = dt > 0 and (explore.x-oldX)/dt or 0
         if moving and explore.y == 0 and (explore.vy or 0) == 0 then
             explore.walkT = (explore.walkT or 0) + dt * (math.abs(explore.vx) > 1 and 10 or 0)
@@ -463,6 +466,10 @@ function Game.update(dt)
             explore.grounded = true
         end
         explore.landT = math.max(0, (explore.landT or 0)-dt)
+        Station.update(dt, explore)
+        local sm, sd = Station.takeMsg()
+        if sm then toast, toastT = sm, sd end
+        explore.repairs, explore.repaired, explore.logRead = Station.s.repairs, Station.s.solved, Station.s.logRead
         Audio.thrust(false)
         return
     end
@@ -1506,85 +1513,8 @@ function Game.draw()
     elseif state == "title" then
         drawSky(); drawRidges(); drawTerrain(); drawTitle()
     elseif state == "explore" then
-        -- Station fantome : environnement industriel detaille, dessine en primitives AKA-Love.
-        color(3,8,19); rect(0,0,W,H)
-        -- baie vitree et horizon lunaire
-        color(8,20,37); rect(18,116,604,156)
-        color(18,39,58); rect(26,124,588,140)
-        color(4,12,28); rect(36,134,568,118)
-        color(20,38,59); rect(44,142,552,102)
-        color(120,179,202); rect(44,142,552,2)
-        color(39,79,101); rect(44,242,552,2)
-        color(205,220,226); rect(72,151,2,84); rect(206,151,2,84); rect(340,151,2,84); rect(474,151,2,84)
-        -- surface lunaire, Terre lointaine et reliefs
-        color(30,52,70); rect(46,211,548,30)
-        color(70,91,105); rect(46,225,548,2)
-        color(13,39,68); rect(456,157,54,34)
-        color(50,118,157); rect(463,163,40,22)
-        color(170,215,229); rect(472,167,8,3); rect(484,174,10,4)
-        color(28,54,72); rect(46,231,548,10)
-        -- murs structurels et nervures
-        color(18,32,48); rect(0,0,640,118); rect(0,272,640,208)
-        color(32,52,69); rect(0,92,640,26); rect(0,268,640,12)
-        color(65,88,104); rect(0,94,640,3); rect(0,274,640,3)
-        for i=0,10 do
-            local x=i*64
-            color(25,43,59); rect(x,0,4,116); rect(x+5,8,2,83)
-            color(57,78,91); rect(x+8,18,20,3); rect(x+8,18,3,15)
-            color(12,24,38); rect(x+4,279,56,128)
-            color(29,47,62); rect(x+8,283,48,118)
-            color(53,74,88); rect(x+8,283,48,3)
-            color(17,31,46); rect(x+13,294,38,96)
-            color(38,57,71); rect(x+16,299,32,3)
-            color(17,33,48); rect(x+6,414,52,28)
-            color(49,72,87); rect(x+6,414,52,3)
-        end
-        -- plancher technique, rails, marquages de securite
-        color(12,22,34); rect(0,280,640,200)
-        color(50,70,84); rect(0,280,640,5)
-        color(22,39,53); rect(0,285,640,195)
-        for i=0,15 do
-            local x=i*44
-            color(39,57,70); rect(x,300,2,150)
-            color(31,49,63); rect(x+3,300,35,3); rect(x+3,446,35,3)
-        end
-        color(95,110,115); rect(0,451,640,4)
-        color(240,157,54); rect(20,456,44,4); rect(76,456,44,4); rect(132,456,44,4)
-        color(24,40,54); rect(0,462,640,18)
-        -- cables rompus et obstacle de maintenance
-        color(3,9,17); rect(182,431,82,5); rect(190,436,5,12); rect(220,436,4,11); rect(247,435,5,13)
-        color(232,143,45); rect(185,429,24,2); rect(226,429,32,2)
-        color(10,20,31); rect(292,419,54,31)
-        color(55,73,85); rect(292,419,54,4); rect(300,426,38,3)
-        color(13,30,44); rect(294,432,50,16)
-        color(255,172,61); rect(306,434,8,3); rect(318,434,8,3)
-        -- panneaux de maintenance a reparer
-        for i=1,3 do
-            local px=230+(i-1)*90
-            color(7,15,26); rect(px,300,54,84)
-            color(56,80,96); rect(px,300,54,4); rect(px,300,3,84); rect(px+51,300,3,84)
-            color(20,39,54); rect(px+7,311,40,60)
-            color(9,21,34); rect(px+11,316,32,28)
-            local active = explore.repaired or (explore.repairs or 0)>=i
-            color(active and 75 or 30, active and 220 or 67, active and 184 or 82); rect(px+15,320,24,4)
-            color(100,123,133); rect(px+15,331,24,2); rect(px+15,338,15,2)
-            color(255,164,57); rect(px+12,355,6,4)
-        end
-        -- porte blindee et terminal central
-        color(7,16,27); rect(465,165,118,116)
-        color(50,75,91); rect(465,165,118,4); rect(465,165,4,116); rect(579,165,4,116)
-        color(18,38,55); rect(474,174,100,98)
-        color(32,58,75); rect(482,182,84,82)
-        color(11,24,39); rect(490,190,68,70)
-        color(255,161,55); rect(492,193,64,3)
-        color(71,208,206); rect(500,203,48,22)
-        color(8,25,39); rect(504,207,40,14)
-        color(111,242,226); rect(508,211,7,3); rect(519,211,14,3); rect(508,216,27,2)
-        color(255,169,60); rect(504,235,40,3)
-        -- lumiere d'urgence en pulsation discrete
-        local pulse=math.floor((math.sin(explore.t*3)+1)*2)
-        color(255,75,58); rect(38,101,18,5+pulse); rect(584,101,18,5+pulse)
-        color(80,222,212); rect(282,101,18,3); rect(306,101,18,3)
+        -- Station Argo : pieces dessinees par src/station.lua (primitives AKA-Love)
+        Station.draw(explore)
         -- Explorateur : sprite propre si disponible, sinon rendu de secours existant.
         local px=math.floor(explore.x)
         local py=math.floor(explore.y or 0)
@@ -1676,12 +1606,13 @@ function Game.draw()
         -- HUD diegetique
         panel(22,20,596,64)
         color(79,221,213); rect(36,34,4,34)
-        centered("SECTEUR 03 / STATION", 34, fonts.f24, {135,239,231})
-        local objective = explore.logRead and "RAPPORT COPIE - ACCES AU SAS" or (explore.repaired and "RESEAU RETABLI - RAPPORT A CONSULTER" or ("CIRCUITS AUXILIAIRES  "..tostring(explore.repairs or 0).."/3"))
+        centered("STATION ARGO  "..Station.s.room.."/"..Station.ROOMS, 34, fonts.f24, {135,239,231})
+        local objective = Station.objective()
         centered(objective, 65, fonts.f16, {214,225,230})
         -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
         -- Tout est en police 16 (8 px reels sur l'AKA) ; 24 caracteres par ligne au maximum.
         local cx, cy, cw, ch = 24, 96, 424, 150
+        if Station.s.mode == "walk" then
         panel(cx, cy, cw, ch)
         color(43,205,211); rect(cx+10, cy+27, cw-20, 1)
         love.graphics.setFont(fonts.f16.obj)
@@ -1689,8 +1620,7 @@ function Game.draw()
         love.graphics.printf("LUNA // SIGNAL INSTABLE", cx+14, cy+7, cw-28, "left")
         local msg
         if toastT > 0 and toast ~= "" then msg = toast
-        elseif (explore.repairs or 0) >= 3 then msg = "Terminal accessible : rejoignez la porte blindee a droite."
-        else msg = "Reparer les 3 relais, de gauche a droite." end
+        else msg = Station.hint() end
         if msg ~= explore.msg or explore.t < (explore.msgT0 or 0) then
             explore.msg, explore.msgT0 = msg, explore.t
             -- retour a la ligne manuel (calcule une seule fois par message) : le texte ne bouge pas en s'ecrivant
@@ -1714,7 +1644,9 @@ function Game.draw()
             color(135,239,231); rect(cx+cw-22, cy+ch-34, 8, 3)
         end
         color(255,190,98)
-        love.graphics.printf(explore.repaired and "ESPACE : JOURNAL" or "E : AGIR  ESPACE : SAUT", cx+14, cy+ch-24, cw-28, "left")
+        love.graphics.printf("E : AGIR  ESPACE : SAUT", cx+14, cy+ch-24, cw-28, "left")
+        end
+        Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj})
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
@@ -1779,6 +1711,7 @@ local function afterDebrief()
                 explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
                 explore.facing, explore.grounded = 1, true
                 explore.repaired, explore.repairs, explore.logRead, explore.campaign = false, 0, false, true
+                Station.reset()
                 loadExplorerSprites()
                 state = "explore"
             else
@@ -1874,6 +1807,7 @@ function Game.keypressed(key, scancode, isrepeat)
             explore.x, explore.y, explore.vy, explore.t, explore.repaired, explore.repairs, explore.logRead, explore.campaign = 100, 0, 0, 0, false, 0, false, false
             explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
             explore.facing, explore.grounded = 1, true
+            Station.reset()
             loadExplorerSprites()
             state = "explore"
             Audio.play("menu")
@@ -1909,6 +1843,13 @@ function Game.keypressed(key, scancode, isrepeat)
             state = "debrief"
         end
     elseif state == "explore" then
+        if Station.s.mode ~= "walk" then
+            local _, ev = Station.key(key)
+            if ev and (ev == "move" or not isrepeat) then
+                Audio.play(ev == "bad" and "warn" or (ev == "solved" and "pickup" or "menu"))
+            end
+            return
+        end
         if key == "space" and not isrepeat and explore.grounded and explore.y == 0 and (explore.vy or 0)==0 then
             explore.vy = -205
             explore.grounded = false
@@ -1916,34 +1857,10 @@ function Game.keypressed(key, scancode, isrepeat)
             Audio.play("menu")
         elseif (key == "e" or key == "a") and not isrepeat then
             explore.interactT = 0.62
-            local x=explore.x
-            local relay = math.floor((x-230+45)/90)+1
-            local relayX = 230+(relay-1)*90
-            if not explore.repaired and relay>=1 and relay<=3 and math.abs(x-relayX)<=38 then
-                if relay==(explore.repairs or 0)+1 then
-                    explore.repairs=relay
-                    Audio.play("menu")
-                    if relay==1 then
-                        toast="LUNA : Un circuit auxiliaire etait deja actif. Je n'en trouve pas l'origine."
-                        toastT=4
-                    end
-                    if explore.repairs>=3 then
-                        explore.repaired=true
-                        explore.phase="signal"
-                        toast="LUNA : Reseau restaure. Les diagnostics sont presque tous nominaux."
-                        toastT=5
-                    end
-                else
-                    toast="LUNA : Suivez l'ordre des relais, de gauche a droite."
-                    toastT=2
-                end
-            elseif explore.repaired and not explore.logRead and x>=455 and x<=535 then
-                explore.logRead=true
-                explore.phase="exit"
-                Audio.play("menu")
-                toast="RAPPORT VARGA : diagnostic incomplet."
-                toastT=5
-            elseif explore.logRead and x>=535 then
+            local m, ev = Station.interact(explore.x)
+            if m then toast, toastT = m, 5 end
+            if ev then Audio.play("menu") end
+            if ev == "exit" then
                 unloadExplorerSprites()
                 if explore.campaign then
                     explore.campaign = false
@@ -1954,9 +1871,6 @@ function Game.keypressed(key, scancode, isrepeat)
                     toast="Rapport copie. Les systemes sont de nouveau operationnels. Rejoignons le sas."
                     toastT=5
                 end
-            else
-                toast="LUNA : Approchez-vous du panneau lumineux indique."
-                toastT=2.5
             end
         elseif key == "escape" then
             unloadExplorerSprites()

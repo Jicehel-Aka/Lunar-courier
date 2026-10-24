@@ -128,7 +128,9 @@ Game._set = function(t)
 end
 Game._ship = function() return {x=ship.x, y=ship.y, vx=ship.vx, vy=ship.vy, angle=ship.angle, resting=ship.resting, landed=ship.landed, fuel=fuel, hull=hull, gy=groundAt(ship.x), failed=failed} end
 Game._begin = function(i) beginMission(i) end
-Game._explore = function() loadExplorerSprites(); explore.x, explore.y, explore.vy, explore.t = 100, 0, 0, 0; explore.repaired, explore.repairs, explore.campaign = false, 0, false; state = 'explore' end
+Game._explore = function() require('src.station').reset(); loadExplorerSprites(); explore.x, explore.y, explore.vy, explore.t = 100, 0, 0, 0; explore.repaired, explore.repairs, explore.campaign = false, 0, false; state = 'explore' end
+Game._tp = function(x) explore.x = x end
+Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
 Game._title = function() state = 'title'; buildMenu() end
 Game._forcegame = function() state = 'game'; paused = false end
 Game._maxg = function(x1,x2)
@@ -261,6 +263,64 @@ print("pre cards M1:", dbg()['state'], dbg()['ncards'])
 
 import ap
 autopilot = ap.make_autopilot(dbg, beams, debris, step, hold, clamp, lambda a,b: int(lua.eval(f'require("src.game")._maxg({a},{b})')))
+def run_station():
+    """Parcourt la station Argo (4 pieces) avec les vraies touches : portes, relais, mini-jeu, journal, sortie."""
+    G = 'require("src.game")'
+    def st(): 
+        t = lua.eval(G + '._st()'); return {k: t[k] for k in ('room','d1','d2','d3','repairs','solved','pages','log','mode','used','sel','x')}
+    def tp(x): lua.execute(G + '._tp(%d)' % x)
+    def check(cond, label):
+        if not cond:
+            print("STATION FAIL:", label, st()); FAILED.append("station: " + label)
+        return cond
+    ok = True
+    # piece 1 : mur invisible tant que la porte est fermee
+    tp(300); hold('right', True); step(60); hold('right', False)
+    ok &= check(st()['x'] <= 500.5 and st()['room'] == 1, "porte 1 fermee bloque le passage")
+    key('a'); step(1)                       # pas de console a portee ? x=500 -> console x=470 a 30 px
+    ok &= check(st()['d1'], "console du sas ouvre la porte 1")
+    hold('right', True); step(60); hold('right', False)
+    ok &= check(st()['room'] == 2, "passage en piece 2")
+    # piece 2 : relais dans le mauvais ordre puis le bon
+    tp(270); key('a'); step(1)
+    ok &= check(st()['repairs'] == 0, "relais 2 avant 1 refuse")
+    tp(470); key('a'); step(1)
+    ok &= check(not st()['d2'], "porte 2 verrouillee")
+    for x in (190, 270, 350):
+        tp(x); key('a'); step(1)
+    ok &= check(st()['repairs'] == 3 and st()['d2'], "3 relais ouvrent la porte 2")
+    tp(560); hold('right', True); step(40); hold('right', False)
+    ok &= check(st()['room'] == 3, "passage en piece 3")
+    # retour arriere possible
+    hold('left', True); step(120); hold('left', False)
+    ok &= check(st()['room'] == 2, "retour piece 2")
+    tp(580); hold('right', True); step(30); hold('right', False)
+    ok &= check(st()['room'] == 3, "retour piece 3")
+    # piece 3 : notes puis mini-jeu
+    for x in (120, 250):
+        tp(x); key('a'); step(1)
+    tp(470); key('a'); step(1)
+    ok &= check(st()['mode'] == 'energy', "console ouvre le mini-jeu")
+    # essai raté : BALISE + JOURNAL + SAS (6) mais sans lumiere -> pas resolu
+    key('down'); step(1); key('a'); step(1)             # balise on (1)
+    key('down'); key('down'); step(1); key('a'); step(1)  # journal on (3) -> 4
+    key('up'); key('up'); key('up'); step(1); key('a'); step(1)  # sas on (2) -> 6
+    ok &= check(st()['used'] == 6 and not st()['solved'], "6 unites sans lumiere : non resolu")
+    key('down'); step(1); key('a'); step(1)             # balise off -> 5
+    key('down'); step(1); key('a'); step(1)             # eclairage on -> 6
+    ok &= check(st()['solved'] and st()['d3'] and st()['mode'] == 'walk', "sas+eclairage+journal resolvent")
+    # surcharge refusee
+    tp(560); hold('right', True); step(40); hold('right', False)
+    ok &= check(st()['room'] == 4, "passage en piece 4")
+    # piece 4 : sortie verrouillee tant que le journal n'est pas lu
+    tp(470); key('a'); step(1)
+    ok &= check(st()['room'] == 4 and not st()['log'], "sortie verrouillee")
+    for i in range(3):
+        tp(300); key('a'); step(1)
+    ok &= check(st()['pages'] == 3 and st()['log'], "journal en 3 pages")
+    tp(470); key('a'); step(1)
+    return ok
+
 results={}
 advance_to_game()
 
@@ -372,18 +432,9 @@ for mi in range(1, nm+1):
     # M03 ouvre une sequence d'exploration avant M04 : reparer les 3 relais puis lire le terminal.
     # Simule les commandes joueur au lieu de sauter l'interlude narratif.
     if mi == 3 and d['state'] == 'explore':
-        for frames in (33, 18, 19):
-            hold('right', True); step(frames); hold('right', False)
-            key('a'); step(1)
-        hold('right', True); step(12); hold('right', False)
-        key('a'); step(1)  # lire le rapport de maintenance
+        ok_st = run_station()
         d = dbg()
-        if d['state'] == 'explore':
-            # La sortie est plus a droite : rejoindre le sas apres la lecture du rapport.
-            hold('right', True); step(18); hold('right', False)
-            key('a'); step(1)
-            d = dbg()
-        if d['state'] != 'card' or d['cardIdx'] != 1:
+        if not ok_st or d['state'] != 'card' or d['cardIdx'] != 1:
             print("station interlude did not launch M04:", d['state'], d['mi'], d['cardIdx'])
             FAILED.append("station interlude")
     # entering next mission: pre cards counted inside 'seen'
