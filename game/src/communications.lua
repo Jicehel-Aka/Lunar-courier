@@ -127,25 +127,7 @@ function C.draw(ex)
   -- lumiere d'alerte discrete et ambiance dynamique
   if math.floor(st.t*2)%2==0 then col(255,94,78) else col(95,35,34) end
   rect(38,102,18,5); rect(584,102,18,5)
-  -- titre et objectif
-  col(3,10,22); rect(20,18,600,66); col(43,205,211); rect(20,18,600,2)
-  col(135,239,231); g.setFont(24); g.printf("M9 // RELAIS DE COMMUNICATIONS",30,28,580,"center")
-  col(255,190,79); g.setFont(16); g.printf(NAMES[r],30,58,580,"center")
-  col(3,10,22); rect(22,92,596,42); col(214,225,230); g.setFont(16); g.printf(C.objective(),32,104,576,"center")
-  -- console LUNA compacte; la ligne d'aide reste lisible a la resolution physique.
-  col(4,12,25); rect(22,356,390,78); col(43,205,211); rect(22,356,390,2)
-  col(255,179,78); g.setFont(16); g.printf("LUNA // JOURNAL DE BORD",34,365,366,"left")
-  col(204,222,230); g.setFont(16)
-  local msg=st.msg or C.hint(); local lines,cur={}, ""
-  for word in msg:gmatch("%S+") do
-    if #cur>0 and #cur+1+#word>31 then lines[#lines+1]=cur; cur=word else cur=(#cur>0) and (cur.." "..word) or word end
-  end
-  if #cur>0 then lines[#lines+1]=cur end
-  for i=1,math.min(2,#lines) do g.printf(lines[i],34,388+(i-1)*19,366,"left") end
-  col(255,190,98); g.printf("E : AGIR   ESPACE : SAUT",34,438,366,"left")
-  if not (love.system and love.system.getOS and love.system.getOS()=="AKA") then
-    col(145,170,184); g.printf("AZERTY : Q/D ou fleches - E : action",70,462,500,"center")
-  end
+  -- Le HUD et le journal LUNA sont rendus par game.lua, comme dans M3/M5.
   -- marqueur d'interaction : petit chevron ambre au-dessus du terminal actif
   local tx=(r==1 and 470) or (r==2 and 310) or 470
   local active=(r==1 and not st.doors[1]) or (r==2 and not st.repaired) or (r==3 and st.repaired and not st.aligned)
