@@ -133,6 +133,7 @@ Game._tp = function(x) explore.x = x end
 Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
 Game._sg = function() local S = require('src.signal').s; return {f=S.f, p=S.p, tf=S.c.tf, tp=S.c.tp, locked=S.locked, match=S.match or 0, mul=explore.nextMul or 1} end
 Game._sgset = function(f,p) local S = require('src.signal').s; S.f, S.p = f, p end
+Game._dis = function() local D = require('src.disembark').s; return {t=D.t or 0, active=D.active and 1 or 0} end
 Game._title = function() state = 'title'; buildMenu() end
 Game._forcegame = function() state = 'game'; paused = false end
 Game._maxg = function(x1,x2)
@@ -346,6 +347,22 @@ def run_signal(mi):
     if d['state'] != 'card': print("SIGNAL FAIL: pas de vol apres l'accord", d['state']); FAILED.append("signal exit"); ok = False
     return ok
 
+def run_disembark(mi, natural):
+    """Debarquement apres M3/M5/M9 : le temps avance, la touche d'action passe la scene, sinon elle se termine seule."""
+    G = 'require("src.game")'
+    t0 = lua.eval(G + '._dis().t'); step(60); t1 = lua.eval(G + '._dis().t')
+    ok = True
+    if not t1 > t0 + 1.0: print("DISEMBARK FAIL: le temps n'avance pas", t0, t1); FAILED.append("disembark time"); ok = False
+    if natural:
+        n = 0
+        while dbg()['state'] == 'disembark' and n < 900: step(1); n += 1
+        if n >= 900 or n < 150: print("DISEMBARK FAIL: duree anormale", n); FAILED.append("disembark length M%d" % mi); ok = False
+    else:
+        key('a'); step(2)
+    want = 'explore' if mi == 3 else 'signal'
+    if dbg()['state'] != want: print("DISEMBARK FAIL: attendu", want, "obtenu", dbg()['state']); FAILED.append("disembark exit M%d" % mi); ok = False
+    return ok
+
 results={}
 advance_to_game()
 
@@ -456,6 +473,11 @@ for mi in range(1, nm+1):
     d=dbg()
     # M03 ouvre une sequence d'exploration avant M04 : reparer les 3 relais puis lire le terminal.
     # Simule les commandes joueur au lieu de sauter l'interlude narratif.
+    if mi in (3, 5, 9):
+        if d['state'] != 'disembark':
+            print("expected disembark after M%d, got" % mi, d['state']); FAILED.append("disembark missing M%d" % mi)
+        else:
+            run_disembark(mi, mi == 5); d = dbg()
     if mi == 3 and d['state'] == 'explore':
         ok_st = run_station()
         d = dbg()

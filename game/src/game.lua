@@ -9,6 +9,7 @@ local Art   = require("src.art")
 local I     = require("src.i18n")
 local Station = require("src.station")
 local Signal  = require("src.signal")
+local Dis     = require("src.disembark")
 local Game = {}
 
 local W, H = 640, 480
@@ -456,7 +457,12 @@ local function updateExplore(dt)
 end
 
 local beginMission
-local function updateSignal(dt)
+local function updateInterlude(dt)
+    if state == "disembark" then
+        if Dis.update(dt) then Dis.s.active = false; Dis.s.cb() end
+        Audio.thrust(false)
+        return
+    end
     local k = I.moveKeys()
     local kf = (anyDown(k.right) and 1 or 0) - (anyDown(k.left) and 1 or 0)
     local kp = (anyDown(k.up) and 1 or 0) - (anyDown({"down","s"}) and 1 or 0)
@@ -493,7 +499,7 @@ function Game.update(dt)
         if p.life <= 0 then table.remove(particles, i) end
     end
     if state == "explore" then updateExplore(dt); return end
-    if state == "signal" then updateSignal(dt); return end
+    if state == "signal" or state == "disembark" then updateInterlude(dt); return end
     if state ~= "game" or paused or ship.landed or failed then Audio.thrust(false); return end
 
     local m = mission()
@@ -1022,6 +1028,25 @@ local function drawShip()
     color(255,219,129); rect(-1,4,1,2)
     color(79,111,129);  love.graphics.line(-5,12,5,12)
     love.graphics.pop()
+end
+
+local function drawAstro(group, frame, px, feetY)
+    local frames = explorerSprites[group] or {}
+    local sprite = frames[frame] or frames[1]
+    if sprite then
+        local sw, sh = sprite:getDimensions()
+        local scale = 76 / math.max(1, sh)
+        color(255,255,255)
+        love.graphics.draw(sprite, px - sw*scale*0.5, feetY - 76, 0, scale, scale)
+    else
+        color(205,220,228); rect(px-6, feetY-44, 12, 44)
+        color(44,222,226); rect(px-4, feetY-40, 8, 8)
+    end
+end
+
+local function drawDisembark()
+    ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 110, 408, 0, false, true
+    Dis.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, sky=drawSky, ship=drawShip, astro=drawAstro})
 end
 
 local function drawParticles()
@@ -1669,6 +1694,8 @@ function Game.draw()
         end
         Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj})
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
+    elseif state == "disembark" then
+        drawDisembark()
     elseif state == "signal" then
         Signal.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, f24=fonts.f24.obj})
     elseif state == "instructions" then
@@ -1729,18 +1756,26 @@ local function afterDebrief()
         showCards(missionIndex, "post", backToTitle, m.sky, "card_title")
     else
         showCards(missionIndex, "post", function()
-            if missionIndex == 3 then
-                explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
-                explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
-                explore.facing, explore.grounded = 1, true
-                explore.repaired, explore.repairs, explore.logRead, explore.campaign = false, 0, false, true
-                Station.reset()
+            local site = Dis.siteFor(missionIndex)
+            if site then
+                local from = missionIndex
                 loadExplorerSprites()
-                state = "explore"
-            elseif Signal.has(missionIndex) then
-                explore.nextI = nextI
-                Signal.start(missionIndex)
-                state = "signal"
+                Dis.start(site, function()
+                    if from == 3 then
+                        explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
+                        explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
+                        explore.facing, explore.grounded = 1, true
+                        explore.repaired, explore.repairs, explore.logRead, explore.campaign = false, 0, false, true
+                        Station.reset()
+                        state = "explore"
+                    else
+                        unloadExplorerSprites()
+                        explore.nextI = nextI
+                        Signal.start(from)
+                        state = "signal"
+                    end
+                end)
+                state = "disembark"
             else
                 beginMission(nextI)
             end
@@ -1904,6 +1939,8 @@ function Game.keypressed(key, scancode, isrepeat)
             state="title"
             buildMenu()
         end
+    elseif state == "disembark" then
+        if (confirm(key) or key == "e" or key == "a") and not isrepeat then Dis.skip() end
     elseif state == "debrief" then
         if confirm(key) then afterDebrief() end
     end
