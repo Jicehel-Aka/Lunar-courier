@@ -50,6 +50,12 @@ function love.graphics.rectangle(mode,x,y,w,h) PRIM = PRIM + 1 chk("rectangle",s
   local cl = clipped(x0, y0, x1, y1)
   FILL = FILL + cl
   if FPROF and FPROF_STATE then
+    local k = "rect "
+    for lv = 3, 5 do local i = debug.getinfo(lv, "Sl"); if i then k = k .. (i.short_src:match("[^/]*$") or "?") .. ":" .. i.currentline .. " < " end end
+    FCNT = FCNT or {}; FCNT[FPROF_STATE] = FCNT[FPROF_STATE] or {}
+    FCNT[FPROF_STATE][k] = (FCNT[FPROF_STATE][k] or 0) + 1
+  end
+  if FPROF and FPROF_STATE then
     local k = ""
     for lv = 2, 5 do local i = debug.getinfo(lv, "Sl"); if i then k = k .. (i.short_src:match("[^/]*$") or "?") .. ":" .. i.currentline .. " < " end end
     local st = FPROF_STATE or "?"
@@ -58,7 +64,16 @@ function love.graphics.rectangle(mode,x,y,w,h) PRIM = PRIM + 1 chk("rectangle",s
   end end
 function love.graphics.circle(mode,x,y,r) PRIM = PRIM + 1 chk("circle",select('#',mode,x,y,r),4)
   local rr = r * SX; FILL = FILL + math.min(SCREEN, 3.14159 * rr * rr) end
-function love.graphics.line(...) PRIM = PRIM + 1 chk("line",select('#',...),4) end
+local function cnt(kind)
+  if FPROF and FPROF_STATE then
+    local k = kind .. " "
+    for lv = 3, 5 do local i = debug.getinfo(lv, "Sl"); if i then k = k .. (i.short_src:match("[^/]*$") or "?") .. ":" .. i.currentline .. " < " end end
+    FCNT = FCNT or {}
+    FCNT[FPROF_STATE] = FCNT[FPROF_STATE] or {}
+    FCNT[FPROF_STATE][k] = (FCNT[FPROF_STATE][k] or 0) + 1
+  end
+end
+function love.graphics.line(...) PRIM = PRIM + 1 chk("line",select('#',...),4) cnt("line") end
 function love.graphics.polygon(mode,...) PRIM = PRIM + 1
   local a={...}; if #a<6 then error("polygon <3 pts",2) end
   local n=#a/2; local sign=0
@@ -683,6 +698,11 @@ if FILLPROF:
         rows = sorted(((v, k) for k, v in tb[stn].items()), reverse=True)[:6]
         tot = sum(v for v, k in rows)
         print("  FILL", stn); [print(f"     {v/307200:9.1f} ecrans  {k}") for v, k in rows]
+    fc = lua.eval('FCNT or {}')
+    for stn in fc:
+        if stn not in ('game','explore','disembark'): continue
+        rows = sorted(((v, k) for k, v in fc[stn].items()), reverse=True)[:14]
+        print("  COUNT", stn); [print(f"     {v/800:7.1f}/image  {k}") for v, k in rows]
 print("cout par ecran (formes/image moy, max ; remplissage en ecrans moy, max) :")
 for stn, r in sorted(PERF_STATE.items()):
     print(f"  {stn:10s} n={r['n']:5d} formes {r['psum']//max(1,r['n']):4d} / {r['pmax']:4d}   remplissage {r['fsum']/max(1,r['n'])/307200:5.2f} / {r['fmax']/307200:5.2f}")

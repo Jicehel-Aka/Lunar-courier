@@ -82,7 +82,8 @@ end
 function Sg.draw(ui)
     local g = love.graphics
     local c = st.c
-    ui.color(3, 8, 19); ui.rect(0, 0, 640, 480)
+    -- fond : seulement les marges, le cadre couvre le reste (pas de surdessin)
+    ui.color(3, 8, 19); ui.rect(0, 0, 640, 24); ui.rect(0, 456, 640, 24); ui.rect(0, 24, 40, 432); ui.rect(600, 24, 40, 432)
     ui.panel(40, 24, 560, 432)
     g.setFont(ui.f24)
     ui.color(135, 239, 231); g.printf("ACCORDER LE SIGNAL", 40, 40, 560, "center")

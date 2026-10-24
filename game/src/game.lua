@@ -1573,7 +1573,11 @@ function Game.draw()
     end
 
     if state == "card" then
-        drawSky(); drawRidges(); drawTerrain(); drawCard()
+        -- Le bandeau et le cadre couvrent presque tout l'ecran : seules les marges montrent le fond.
+        local bg = pal().bg
+        colorT(bg)
+        rect(0, 150, W, 10); rect(0, 160, 30, 320); rect(610, 160, 30, 320); rect(30, 474, 580, 6)
+        drawCard()
     elseif state == "title" then
         drawSky(); drawRidges(); drawTerrain(); drawTitle()
     elseif state == "explore" then
