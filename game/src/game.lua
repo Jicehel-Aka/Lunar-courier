@@ -1825,7 +1825,15 @@ local function afterDebrief()
                 end)
                 state = "disembark"
             else
-                beginMission(nextI)
+                -- Intermissions jouables supplementaires : les Lucioles (M15),
+                -- le contact avec la Terre (M16) et l'accord final du Phare (M17).
+                if Signal.has(missionIndex) then
+                    explore.nextI = nextI
+                    Signal.start(missionIndex)
+                    state = "signal"
+                else
+                    beginMission(nextI)
+                end
             end
         end, m.sky, "card_nextm")
     end
