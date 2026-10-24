@@ -1045,8 +1045,11 @@ local function drawAstro(group, frame, px, feetY)
 end
 
 local function drawDisembark()
-    ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 110, 408, 0, false, true
-    Dis.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, sky=drawSky, ship=drawShip, astro=drawAstro})
+    Dis.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, sky=drawSky, astro=drawAstro,
+              ship=function()
+                  ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 0, -12.5, 0, false, true
+                  drawShip()
+              end})
 end
 
 local function drawParticles()
