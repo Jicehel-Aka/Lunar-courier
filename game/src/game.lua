@@ -478,7 +478,7 @@ local function updateExplore(dt)
     Audio.thrust(false)
 end
 
-local beginMission
+local beginMission, backToTitle
 local function updateInterlude(dt)
     if state == "cinematic" then
         if Cinematic.update(dt) then
@@ -1786,7 +1786,7 @@ function beginMission(i)
     showCards(i, "pre", function() startMission(i) end, m.sky, "card_launch")
 end
 
-local function backToTitle()
+backToTitle = function()
     skyOverride = nil
     titleAnim = 0
     missionIndex = 1
