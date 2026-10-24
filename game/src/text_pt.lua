@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : A rede converge para o Coracao. O modulo que voce leva deve ser entregue la: seu codigo e o unico que abre a eclusa.\n\nLUNA : O farol esta num planalto. Suba e pouse bem nivelado."},
   },
   post={
-   {"TRANSMISSAO RECEBIDA", "O modulo se encaixa perfeitamente. O reator reconhece o codigo do pacote: esperava essa entrega ha anos.\n\nLUNA : Estranho. Reconheci a sequencia do codigo antes mesmo de a eclusa pedir."},
+   {"TRANSMISSAO RECEBIDA", "A eclusa aceita o modulo, mas o reator continua mudo. As plantas indicam um encaixe central e um console de comando.\n\nLUNA : O codigo me e familiar. Mas a fase de partida... nao entendo por que."},
   },
   radio={}},
 -- M6
@@ -63,20 +63,20 @@ return {
 -- M7
  {name="ALEM DO HORIZONTE", objective="Acorde o farol Beta",
   pre={
-   {"O LADO OCULTO", "CAPITULO 2\n\nA estrada de luz segue para o lado que a Terra nunca ve. LUNA avisa: sem radio la fora. Apenas os farois vao guia-lo."},
-   {"BRIEFING", "LUNA : Em poucos minutos a Terra afundara no horizonte. Quando sumir, perco o contato.\n\nLUNA : Calma: o farol Beta sera nosso proximo farol-guia. Pegue a capsula e pouse."},
+   {"O LADO OCULTO", "CAPITULO 2\n\nA estrada de luz segue para o lado que a Terra nunca ve. La fora nao ha ligacao com a Terra. So os farois e a voz de LUNA, a bordo."},
+   {"BRIEFING", "LUNA : Em poucos minutos a Terra afundara no horizonte. Quando sumir, perco o contato com o Controle. Nao com voce: vivo nesta nave, piloto.\n\nLUNA : Calma: o farol Beta sera nosso proximo farol-guia. Pegue a capsula e pouse."},
   },
   post={
    {"TRANSMISSAO RECEBIDA", "Beta responde com uma assinatura: I. VARGA, comandante da estacao Argo. Entao a voz da mensagem nao era uma IA. Alguem construiu esta rede sabendo que outro piloto viria.\n\nLUNA : Ines Varga... O nome esta nos meus arquivos."},
   },
-  radio={"LUNA : A Terra afunda no horizonte... contato perdido."}},
+  radio={"LUNA : Terra abaixo do horizonte. Contato com a Terra perdido."}},
 -- M8
  {name="SILENCIO DE RADIO", objective="Retransmita o sinal",
   pre={
-   {"BRIEFING", "LUNA : Silencio total de radio. Minhas leituras de velocidade ficarao instaveis as vezes, piloto: confie nos seus olhos.\n\nLUNA : Um vento de poeira sopra do norte. Ele empurra a nave: compense inclinando."},
+   {"BRIEFING", "LUNA : Sem voz da Terra: so falo com voce de dentro da nave. Minhas leituras de velocidade ficarao instaveis as vezes, piloto: confie nos seus olhos.\n\nLUNA : Um vento de poeira sopra do norte. Ele empurra a nave: compense inclinando."},
   },
   post={
-   {"TRANSMISSAO RECEBIDA", "Sem contato com a Terra, LUNA capta uma gravacao de Varga: 'Aqui as ondas de radio nao viajam. Entao construi uma estrada de luz.'\n\nLUNA : Os farois sao as palavras dela, acesas uma a uma. Ela escreveu isso para alguem que nunca conheceu. Para voce."},
+   {"TRANSMISSAO RECEBIDA", "Sem contato com a Terra, LUNA capta, pelos farois, uma gravacao de Varga: 'Aqui as ondas de radio nao viajam. Entao construi uma estrada de luz.'\n\nLUNA : Os farois sao as palavras dela, acesas uma a uma. Ela escreveu isso para alguem que nunca conheceu. Para voce."},
   },
   radio={"LUNA : Leituras confusas. Confie nos seus olhos.", "LUNA : O vento cai as vezes. Aproveite as calmarias."}},
 -- M9
@@ -151,6 +151,7 @@ return {
 -- M16
  {name="DESFILADEIRO", objective="Atravesse o desfiladeiro",
   pre={
+   {"REDE ATIVA", "Os Vagalumes sincronizaram os farois. O repetidor Argo envia enfim um pulso para a Terra. Uma janela de transmissao abriu.\n\nLUNA : A rede voltou a funcionar. Alguem responde."},
    {"CENTRO LAGRANGE", "CONTROLE : ...aqui Centro Lagrange, respondam... Piloto, recebemos seus farois desde esta manha. Achavamos a Lua perdida. Quem e voce?\n\nLUNA : Aqui o Courier, nave de entregas lunar. Estamos acendendo a estrada."},
    {"CENTRO LAGRANGE", "CONTROLE : Aqui Theo Marchand, controlador. Seus farois piscam em codigo ha onze anos. Uma palavra, repetida. Demoramos a le-la.\n\nCONTROLE : VIVOS. Dizia: VIVOS."},
    {"BRIEFING", "LUNA : Desfiladeiro das Sombras. Os raios ricocheteiam nas paredes: tres clarroes, tres ritmos.\n\nLUNA : Passe entre os clarroes, piloto. Um toque e voce perde casco, nao a calma."},

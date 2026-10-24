@@ -7,6 +7,11 @@ local Audio = require("src.audio")
 local Save  = require("src.save")
 local Art   = require("src.art")
 local I     = require("src.i18n")
+local Station = require("src.station")
+local Signal  = require("src.signal")
+local Dis     = require("src.disembark")
+local Reactor = require("src.reactor")
+local Communications = require("src.communications")
 local Game = {}
 
 local W, H = 640, 480
@@ -36,6 +41,7 @@ local ship = {}
 local missionIndex, fuel, hull, cargo, missionTime = 1, 100, 100, 0, 0
 local padIndex, padDone = 1, {}
 local failed, fuelWarned, lowWarned = false, false, false
+local stuckT = 0   -- duree passee posee sans carburant
 local thrustTimer = 0
 local message, messageTimer = "", 0
 local noteTimers = {}
@@ -43,6 +49,38 @@ local radioShown = {}
 local paused = false
 local windCur = 0
 local fonts = {}
+-- Sprites optionnels de l'explorateur. Sans fichiers propres, le rendu procedural reste actif.
+local explorerSprites = {}
+local function unloadExplorerSprites()
+    -- Les 34 images (~165 Ko decodees) ne restent en memoire que pendant la station.
+    if next(explorerSprites) == nil then return end
+    explorerSprites = {}
+    collectgarbage("collect")
+end
+local function loadExplorerSprites()
+    explorerSprites = {}
+    if not (love and love.graphics and love.graphics.newImage) then return end
+    local names = {
+        idle = {"idle_01"},
+        walk_right = {"walk_right_01", "walk_right_02", "walk_right_03", "walk_right_04"},
+        walk_left = {"walk_left_01", "walk_left_02", "walk_left_03", "walk_left_04"},
+        orientation_right = {"orientation_right"}, orientation_left = {"orientation_left"},
+        orientation_up = {"orientation_up"}, orientation_down = {"orientation_down"},
+        jump = {"jump_01", "jump_02", "jump_03", "jump_04", "jump_05", "jump_06", "jump_07", "jump_08"},
+        jump_left = {"jump_left_01", "jump_left_02", "jump_left_03", "jump_left_04", "jump_left_05", "jump_left_06", "jump_left_07", "jump_left_08"},
+        interaction = {"interaction_01", "interaction_02", "interaction_03", "interaction_04", "interaction_05"},
+    }
+    for group, files in pairs(names) do
+        explorerSprites[group] = {}
+        for i, name in ipairs(files) do
+            local ok, img = pcall(love.graphics.newImage, "assets/sprites/"..name..".png")
+            if ok and img then
+                if img.setFilter then pcall(img.setFilter, img, "nearest", "nearest") end
+                explorerSprites[group][i] = img
+            end
+        end
+    end
+end
 local tg, runs, maxG = {}, {}, 390   -- terrain : hauteur par colonne, segments, plus bas
 local worldW, ncol, camX = 640, 160, 0
 local terrPts = {}
@@ -53,6 +91,7 @@ local cardArt, cardT = nil, 0   -- illustrations des cartes, temps ecoule sur la
 local menu, menuSel = {}, 1
 local skyOverride = nil
 local titleAnim = 0 -- chronometre de la sequence d arrivee du vaisseau
+local explore = {x=100, y=0, vy=0, repaired=false, repairs=0, logRead=false, campaign=false, t=0, phase=1}
 local sysOpen, sysPage, sysSel = false, "main", 1   -- menu systeme (MENU court)
 local escDown = nil                                  -- instant d'appui sur MENU (appui long = capture)
 local toast, toastT, shotPending = "", 0, 0
@@ -233,16 +272,21 @@ local function resetMission()
     camX = clamp(ship.x - W/2, 0, math.max(0, worldW - W))
     fuel, hull, cargo, missionTime = 100, 100, 0, 0
     failed, fuelWarned, lowWarned, paused = false, false, false, false
+    stuckT = 0
     particles, noteTimers, windCur, radioShown = {}, {}, 0, {}
     message, messageTimer = "", 0
     thrustTimer = 0
     Audio.thrust(false)
+    explore.x, explore.y, explore.t, explore.phase = 100, 0, 0, 1
+    explore.repaired = false
 end
 
 local function startMission(i)
     skyOverride = nil
     missionIndex = i
     resetMission()
+    explore.fuelMul, explore.nextMul = explore.nextMul or 1, 1
+    if explore.fuelMul < 1 then setMessage("LUNA : Signal accorde. Consommation -"..math.floor((1-explore.fuelMul)*100+0.5).." %.", 4) end
     state = "game"
 end
 
@@ -273,9 +317,10 @@ function Game.load()
     if os and os.time then math.randomseed(os.time())
     elseif love.timer and love.timer.getTime then math.randomseed(math.floor(love.timer.getTime()*100000))
     else math.randomseed(12345) end
-    fonts.f16, fonts.f24, fonts.f32, fonts.f48 = mkfont(16), mkfont(24), mkfont(32), mkfont(48)
+    fonts.f8, fonts.f16, fonts.f24, fonts.f32, fonts.f48 = mkfont(8), mkfont(16), mkfont(24), mkfont(32), mkfont(48)
+    fonts.f12 = fonts.f16   -- 8 px reels sur l'ecran AKA (f8 = 4 px, illisible)
     for i = 1, 22 do
-        stars[#stars+1] = {x=math.random(0,W), y=math.random(0,330), s=math.random(2,3), phase=math.random()*6.28}
+        stars[#stars+1] = {x=math.random(0,W), y=math.random(0,330), s=4, phase=math.random()*6.28}  -- 4 px virtuels = 2 px reels sur l'AKA
     end
     Save.load()
     if Save.lang then I.setLang(Save.lang) end
@@ -295,7 +340,7 @@ local function addParticles(x,y,count,kind)
         local speed = math.random(15,85)
         particles[#particles+1] = {
             x=x, y=y, vx=math.cos(a)*speed, vy=math.sin(a)*speed-math.random(0,25),
-            life=0.35+math.random()*0.55, size=math.random(2,3), kind=kind or "dust"}
+            life=0.35+math.random()*0.55, size=math.random(2,3)*2, kind=kind or "dust"}   -- 4 ou 6 px virtuels (2 a 3 px reels)
     end
 end
 
@@ -369,6 +414,83 @@ end
 -- ---------------------------------------------------------------------------
 -- Mise a jour
 -- ---------------------------------------------------------------------------
+local function updateExplore(dt)
+    explore.t = explore.t + dt
+    local keys = I.moveKeys()
+    local oldX = explore.x
+    local moving = false
+    local frozen = (explore.site == "comms") and (Communications.s.mode ~= "walk") or (explore.site ~= "comms" and Station.s.mode ~= "walk")
+    if not frozen and anyDown(keys.left) then
+        explore.x = explore.x - 145*dt
+        explore.facing = -1
+        moving = true
+    end
+    if not frozen and anyDown(keys.right) then
+        explore.x = explore.x + 145*dt
+        explore.facing = 1
+        moving = true
+    end
+    if explore.site == "comms" then explore.x = clamp(explore.x, Communications.minX(), Communications.maxX())
+    else explore.x = clamp(explore.x, Station.minX(), Station.maxX()) end
+    explore.vx = dt > 0 and (explore.x-oldX)/dt or 0
+    if moving and explore.y == 0 and (explore.vy or 0) == 0 then
+        explore.walkT = (explore.walkT or 0) + dt * (math.abs(explore.vx) > 1 and 10 or 0)
+    else
+        -- L'animation de marche s'arrete en douceur quand le personnage s'immobilise.
+        explore.walkT = (explore.walkT or 0) * math.max(0, 1-dt*8)
+    end
+    explore.interactT = math.max(0, (explore.interactT or 0)-dt)
+    if explore.y < 0 or (explore.vy or 0) ~= 0 then
+        explore.grounded = false
+        explore.vy = (explore.vy or 0) + 470*dt
+        explore.y = explore.y + explore.vy*dt
+        if explore.y >= 0 then
+            explore.y, explore.vy, explore.grounded = 0, 0, true
+            explore.landT = 0.18
+        end
+    else
+        explore.grounded = true
+    end
+    explore.landT = math.max(0, (explore.landT or 0)-dt)
+    if explore.site == "comms" then
+        Communications.update(dt, explore)
+        local sm, sd = Communications.takeMsg()
+        if sm then toast, toastT = sm, sd end
+    else
+        Station.update(dt, explore)
+        local sm, sd = Station.takeMsg()
+        if sm then toast, toastT = sm, sd end
+        explore.repairs, explore.repaired, explore.logRead = Station.s.repairs, Station.s.solved, Station.s.logRead
+    end
+    Audio.thrust(false)
+end
+
+local beginMission
+local function updateInterlude(dt)
+    if state == "reactor" then
+        if Reactor.update(dt) then unloadExplorerSprites(); beginMission(explore.nextI or 6) end
+        Audio.thrust(false)
+        return
+    end
+    if state == "disembark" then
+        if Dis.update(dt) then Dis.s.active = false; Dis.s.cb() end
+        Audio.thrust(false)
+        return
+    end
+    local k = I.moveKeys()
+    local kf = (anyDown(k.right) and 1 or 0) - (anyDown(k.left) and 1 or 0)
+    local kp = (anyDown(k.up) and 1 or 0) - (anyDown({"down","s"}) and 1 or 0)
+    local wasLocked = Signal.s.locked
+    if Signal.update(dt, kf, kp) then
+        explore.nextMul = Signal.bonus()
+        Signal.s.active = false
+        beginMission(explore.nextI)
+    elseif Signal.s.locked and not wasLocked then
+        Audio.play("pickup")
+    end
+    Audio.thrust(false)
+end
+
 function Game.update(dt)
     dt = math.min(dt, 1/30)
     time = time + dt
@@ -390,6 +512,8 @@ function Game.update(dt)
         p.life = p.life - dt
         if p.life <= 0 then table.remove(particles, i) end
     end
+    if state == "explore" then updateExplore(dt); return end
+    if state == "signal" or state == "disembark" or state == "reactor" then updateInterlude(dt); return end
     if state ~= "game" or paused or ship.landed or failed then Audio.thrust(false); return end
 
     local m = mission()
@@ -415,7 +539,7 @@ function Game.update(dt)
     if thrusting then
         ship.vx = ship.vx + math.sin(ship.angle)*THRUST*dt
         ship.vy = ship.vy - math.cos(ship.angle)*THRUST*dt
-        fuel = math.max(0, fuel - m.fuelUse*dt)
+        fuel = math.max(0, fuel - m.fuelUse*(explore.fuelMul or 1)*dt)
         ship.resting = false
         if math.random() < 0.85 then
             addParticles(ship.x - math.sin(ship.angle)*17, ship.y + math.cos(ship.angle)*17, 1, "flame")
@@ -506,10 +630,17 @@ function Game.update(dt)
             else
                 note("nocargo", I.t("no_cargo"), 2.5, 4)
             end
-        elseif math.abs(ship.vy) < 60 and math.abs(ship.angle) < 0.5 then
+        elseif math.abs(ship.vy) < 60 then
+            -- Contact doux : le vaisseau se pose toujours (plus de micro-rebonds repetes sur une pente ou
+            -- incline) ; s'il est trop penche (> 0,5 rad) il se redresse de lui-meme sur ses jambes.
             ship.vy = 0
             ship.vx = ship.vx * 0.8
             ship.resting = true
+            if math.abs(ship.angle) > 0.5 then
+                local k = ship.angle > 0 and 1 or -1
+                ship.angle = ship.angle - k * math.min(math.abs(ship.angle) - 0.5, 2.0 * dt)
+                note("tilt", I.t("tilt"), 2, 5)
+            end
             if math.abs(impact) > 12 then
                 if onLive then note("rough", I.t("too_fast"), 2.2, 3)
                 else note("off", I.t("off_pad"), 2.5, 4) end
@@ -529,6 +660,14 @@ function Game.update(dt)
                 Audio.play("bounce")
             end
         end
+    end
+    -- Pose hors plateforme sans carburant : impossible de redecoller, on propose tout de suite de recommencer
+    -- (le message "CARBURANT EPUISE - recommencer" s'affiche) au lieu de laisser le joueur bloque.
+    if ship.resting and fuel <= 0 and not ship.landed then
+        stuckT = stuckT + dt
+        if stuckT > 2.5 and not failed then failMission(I.t("fuel_out")) end
+    else
+        stuckT = 0
     end
 end
 
@@ -566,14 +705,14 @@ local function drawSky()
         local sx = (i*137 + 19) % W
         local sy = (i*71 + 13) % 278
         if i % 4 == 0 then color(73,133,166) else color(39,77,111) end
-        rect(sx, sy, (i%5==0) and 3 or 2, 2)
+        rect(sx, sy, (i%5==0) and 6 or 4, 4)
         if i % 7 == 0 then
-            color(105,197,210); rect(sx-2, sy+1, 7, 1); rect(sx+1, sy-2, 1, 7)
+            color(105,197,210); rect(sx-4, sy+1, 12, 2); rect(sx+1, sy-4, 2, 12)
         end
     end
     for _,st in ipairs(stars) do
         local pulse = math.floor((time*2 + st.phase)*2) % 5
-        if pulse == 0 then color(92,157,190) elseif pulse == 1 then color(140,203,222) else color(193,222,235) end
+        if pulse == 0 then color(110,175,205) elseif pulse == 1 then color(140,203,222) else color(193,222,235) end
         rect(st.x, st.y, st.s, st.s)
     end
 end
@@ -905,6 +1044,28 @@ local function drawShip()
     love.graphics.pop()
 end
 
+local function drawAstro(group, frame, px, feetY)
+    local frames = explorerSprites[group] or {}
+    local sprite = frames[frame] or frames[1]
+    if sprite then
+        local sw, sh = sprite:getDimensions()
+        local scale = 76 / math.max(1, sh)
+        color(255,255,255)
+        love.graphics.draw(sprite, px - sw*scale*0.5, feetY - 76, 0, scale, scale)
+    else
+        color(205,220,228); rect(px-6, feetY-44, 12, 44)
+        color(44,222,226); rect(px-4, feetY-40, 8, 8)
+    end
+end
+
+local function drawDisembark()
+    Dis.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, sky=drawSky, astro=drawAstro,
+              ship=function()
+                  ship.x, ship.y, ship.angle, ship.thrust, ship.landed = 0, -12.5, 0, false, true
+                  drawShip()
+              end})
+end
+
 local function drawParticles()
     for _,p in ipairs(particles) do
         if p.kind == "flame" then color(255,151,61)
@@ -1117,9 +1278,12 @@ local function drawTitle()
         else centered(it.label, y, fonts.f24, {82,229,218}) end
         y = y + 26
     end
-    centered(I.t("hint1"), 402, fonts.f24, {158,184,202})
-    centered(I.t("hint2"), 426, fonts.f24, {158,184,202})
-    centered(I.t("hint3"), 452, fonts.f16, {120,151,170})
+    centered(I.t("hint1"), 398, fonts.f24, {158,184,202})
+    centered(I.t("hint2"), 421, fonts.f24, {158,184,202})
+    centered(I.t("hint3"), 446, fonts.f16, {120,151,170})
+    if I.aka then
+        centered("D : TEST STATION FANTOME", 462, fonts.f12, {255,190,79})
+    end
 end
 
 -- Aide : libelles de touches selon la plateforme / le clavier / la langue.
@@ -1156,6 +1320,55 @@ local function drawCredits()
 end
 
 local NARRATION = {179,205,219}
+
+-- Effets narratifs legers : scintillement, balayage de capteurs et faisceau final.
+-- Dessines en primitives opaques pour rester compatibles avec AKA-Love.
+local function drawStoryEffects(card)
+    local bannerH = 150
+    for i = 1, 28 do
+        local sx = (i * 97 + 31) % W
+        local sy = (i * 43 + 17) % bannerH
+        local pulse = math.sin(time * (1.3 + (i % 4) * 0.35) + i)
+        if pulse > 0.45 then
+            color(62, 157, 185)
+            rect(sx, sy, (i % 5 == 0) and 3 or 2, 2)
+        elseif pulse < -0.78 then
+            color(28, 73, 112)
+            rect(sx, sy, 2, 2)
+        end
+    end
+
+    -- Une ligne de scan parcourt doucement l'image comme un balayage LUNA.
+    local scanY = 18 + math.floor((time * 23) % 112)
+    color(20, 75, 105)
+    rect(0, scanY, W, 2)
+
+    -- Les moments cles ont un accent visuel distinct, sans masquer le texte.
+    local isIgnition = cardMission == 18 and cardKind == "post" and cardIdx == 3
+    local isFarewell = cardMission == 18 and cardKind == "post" and cardIdx == 2
+    local isEpilogue = cardMission == 18 and cardKind == "post" and cardIdx == 5
+    local isFinal = cardMission == 18 and cardKind == "post" and cardIdx == 6
+    if isIgnition then
+        local phase = (time * 150) % (W + 180)
+        local beamX = math.floor(phase - 90)
+        color(255, 190, 79)
+        rect(beamX, 18, 5, 86)
+        color(112, 230, 226)
+        rect(beamX + 5, 18, 2, 86)
+    elseif isFarewell or isEpilogue or isFinal then
+        local pulse = math.sin(time * 2.1)
+        local cx = 520 + math.floor(pulse * 5)
+        color(24, 100, 128)
+        rect(cx - 9, 34, 18, 3)
+        rect(cx - 3, 27, 6, 17)
+        color(82, 226, 218)
+        rect(cx - 2, 30, 4, 11)
+        if isFinal then
+            color(255, 190, 79)
+            rect(70, 142, math.floor((time * 44) % 500), 2)
+        end
+    end
+end
 
 -- Portrait vectoriel de LUNA : dessin de secours quand l'illustration est absente.
 local function drawLunaPortrait(x, y)
@@ -1202,6 +1415,7 @@ local function drawCard()
         drawLunaPortrait(14, 20)
         color(28,100,119); rect(90, 74, 500, 2)
     end
+    drawStoryEffects(c)
     -- Mise en forme du texte : couleur par interlocuteur, portrait du premier interlocuteur.
     local lines = wrap(c[2], 500, 16)
     local cols, cur, newPara, first = {}, NARRATION, true, nil
@@ -1301,7 +1515,7 @@ local function takeShot()
 end
 
 local function drawToast()
-    if toastT <= 0 or toast == "" then return end
+    if toastT <= 0 or toast == "" or state == "explore" then return end   -- en station, les messages vont sur la console de LUNA
     local w = math.min(560, #toast * 16 + 40)
     panel(W/2 - w/2, 74, w, 36)
     centered(toast, 83, fonts.f16, {236,245,248})
@@ -1361,6 +1575,149 @@ function Game.draw()
         drawSky(); drawRidges(); drawTerrain(); drawCard()
     elseif state == "title" then
         drawSky(); drawRidges(); drawTerrain(); drawTitle()
+    elseif state == "explore" then
+        -- M3 : Station Argo. M9 : relais de communications, meme controle d'exploration.
+        if explore.site == "comms" then Communications.draw(explore) else Station.draw(explore) end
+        -- Explorateur : sprite propre si disponible, sinon rendu de secours existant.
+        local px=math.floor(explore.x)
+        local py=math.floor(explore.y or 0)
+        local walking=math.abs(explore.vx or 0)>8 and py==0 and (explore.vy or 0)==0
+        local jump=(py<0 or (explore.vy or 0)~=0)
+        local interacting=(explore.interactT or 0)>0
+        local group, frame
+        if interacting then
+            group = "interaction"
+            frame = math.min(5, math.max(1, 1 + math.floor((0.62-(explore.interactT or 0))*8)))
+        elseif jump then
+            group = (explore.facing or 1) < 0 and "jump_left" or "jump"
+            frame = math.min(8, math.max(1, math.floor(((explore.vy or 0)+205)/410*7)+1))
+        elseif walking then
+            group = (explore.facing or 1) < 0 and "walk_left" or "walk_right"
+            frame = 1 + math.floor((explore.walkT or 0)*7)%4
+        else
+            group = (explore.facing or 1) < 0 and "orientation_left" or "orientation_right"
+            frame = 1
+        end
+        local frames=explorerSprites[group] or {}
+        local sprite=frames[frame] or frames[1]
+        if sprite then
+            local sw,sh=sprite:getDimensions()
+            local targetH=76
+            local scale=targetH/math.max(1,sh)
+            color(255,255,255)
+            love.graphics.draw(sprite, px-sw*scale*0.5, 451-targetH+py, 0, scale, scale)
+        else
+        -- Astronaute anime : ombre au sol, jambes alternees, bras mobiles et pose de console.
+        local px=math.floor(explore.x)
+        local py=math.floor(explore.y or 0)
+        local walkPhase=(explore.walkT or 0)*math.pi*2
+        local walking=math.abs(explore.vx or 0)>8 and py==0 and (explore.vy or 0)==0
+        local stride=walking and math.sin(walkPhase)*5 or 0
+        local bob=walking and math.abs(math.sin(walkPhase))*1.5 or 0
+        local jump=(py<0 or (explore.vy or 0)~=0)
+        local landing=(explore.landT or 0)>0
+        local facing=explore.facing or 1
+        local interacting=(explore.interactT or 0)>0
+        local armReach=interacting and (1-(explore.interactT or 0)/0.62) or 0
+        local baseY=410+py-bob+(landing and (1-(explore.landT or 0)/0.18)*3 or 0)
+        -- Ombre compacte et aplatie : plus de grand rectangle noir derriere le corps.
+        color(2,7,14); rect(px-12,453,24,3); rect(px-8,451,16,2)
+        -- Sac dorsal, visible sur le cote oppose au sens de marche.
+        color(25,45,64); rect(px-facing*11,414+py-bob,8,19)
+        color(74,111,132); rect(px-facing*12,417+py-bob,3,11)
+        -- Jambes : alternance avant/arriere, repliees pendant le saut.
+        local legA,legB=stride,-stride
+        if jump then legA,legB=-3,3 end
+        if landing then legA,legB=legA*0.45,legB*0.45 end
+        color(21,37,54)
+        love.graphics.polygon("fill",px-7,432+py-bob,px-1,432+py-bob,px-2+legA,446+py-bob,px-8+legA,446+py-bob)
+        love.graphics.polygon("fill",px+1,432+py-bob,px+7,432+py-bob,px+8+legB,446+py-bob,px+2+legB,446+py-bob)
+        color(183,199,208)
+        rect(px-9+legA,446+py-bob,9,4); rect(px+1+legB,446+py-bob,9,4)
+        color(33,54,73); rect(px-10,408+py-bob,20,27)
+        color(116,145,164); rect(px-9,410+py-bob,18,3)
+        -- Epaules et bras articules ; le bras avant se tend reellement vers la console.
+        color(52,76,94)
+        if interacting then
+            local handX=px+facing*(10+armReach*13)
+            local handY=baseY+4-armReach*10
+            -- bras tendu : suite de petits carres de l'epaule au gant (un quadrilatere se croisait, donc concave)
+            local sx, sy = px+facing*8, 415+py-bob
+            for k = 0, 4 do
+                local t = k/4
+                rect(math.floor(sx+(handX-sx)*t)-2, math.floor(sy+(handY+3-sy)*t)-2, 5, 5)
+            end
+            color(183,199,208); rect(handX-facing*2,handY,5,5)
+            -- Petit flash sur le gant pendant la manipulation.
+            if math.floor(explore.t*12)%2==0 then color(255,190,79); rect(handX+facing*3,handY+1,3,3) end
+        else
+            local armSwing=walking and math.sin(walkPhase+math.pi)*4 or 0
+            love.graphics.polygon("fill",px-facing*8,413+py-bob,px-facing*12,416+py-bob,px-facing*(13+armSwing),429+py-bob,px-facing*(8+armSwing),431+py-bob)
+            love.graphics.polygon("fill",px+facing*7,413+py-bob,px+facing*11,416+py-bob,px+facing*(12-armSwing),428+py-bob,px+facing*(7-armSwing),430+py-bob)
+            color(183,199,208); rect(px-facing*(11+armSwing),428+py-bob,5,4); rect(px+facing*(10-armSwing),427+py-bob,5,4)
+        end
+        -- Casque et visiere.
+        color(226,232,226); rect(px-9,390+py-bob,18,20)
+        color(121,151,167); rect(px-12,392+py-bob,24,15)
+        color(207,218,220); rect(px-10,387+py-bob,20,18)
+        color(15,43,61); rect(px-7,391+py-bob,14,10)
+        color(67,185,207); rect(px-6,393+py-bob,12,6)
+        color(105,222,230); rect(px-facing*4,393+py-bob,4,2)
+        color(246,165,66); rect(px-12,402+py-bob,24,4)
+        color(95,222,212); rect(px-8,420+py-bob,16,3)
+        end
+        -- HUD diegetique
+        panel(22,20,596,64)
+        color(79,221,213); rect(36,34,4,34)
+        centered(explore.site == "comms" and (Communications.title().."  "..Communications.s.room.."/3") or ("STATION ARGO  "..Station.s.room.."/"..Station.ROOMS), 34, explore.site == "comms" and fonts.f16 or fonts.f24, {135,239,231})
+        local objective = explore.site == "comms" and Communications.objective() or Station.objective()
+        centered(objective, 65, fonts.f16, {214,225,230})
+        -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
+        -- Tout est en police 16 (8 px reels sur l'AKA) ; 24 caracteres par ligne au maximum.
+        local cx, cy, cw, ch = 24, 96, 424, 150
+        local siteMode = explore.site == "comms" and Communications.s.mode or Station.s.mode
+        if siteMode == "walk" then
+        panel(cx, cy, cw, ch)
+        color(43,205,211); rect(cx+10, cy+27, cw-20, 1)
+        love.graphics.setFont(fonts.f16.obj)
+        color(255,177,78)
+        love.graphics.printf("LUNA // SIGNAL INSTABLE", cx+14, cy+7, cw-28, "left")
+        local msg
+        if toastT > 0 and toast ~= "" then msg = toast
+        else msg = explore.site == "comms" and Communications.hint() or Station.hint() end
+        if msg ~= explore.msg or explore.t < (explore.msgT0 or 0) then
+            explore.msg, explore.msgT0 = msg, explore.t
+            -- retour a la ligne manuel (calcule une seule fois par message) : le texte ne bouge pas en s'ecrivant
+            local lines, cur = {}, ""
+            for word in msg:gmatch("%S+") do
+                if #cur > 0 and #cur + 1 + #word > 24 then lines[#lines+1] = cur; cur = word
+                else cur = (#cur > 0) and (cur.." "..word) or word end
+            end
+            if #cur > 0 then lines[#lines+1] = cur end
+            explore.lines = lines
+        end
+        local n = math.floor((explore.t - (explore.msgT0 or 0)) * 48)
+        color(206,222,230)
+        local left = n
+        for i, l in ipairs(explore.lines) do
+            if left <= 0 then break end
+            love.graphics.printf(l:sub(1, left), cx+14, cy+34+(i-1)*21, cw-28, "left")
+            left = left - #l - 1
+        end
+        if n < #msg and math.floor(explore.t * 6) % 2 == 0 then
+            color(135,239,231); rect(cx+cw-22, cy+ch-34, 8, 3)
+        end
+        color(255,190,98)
+        love.graphics.printf(explore.site == "comms" and Communications.actionHint() or "E : AGIR  ESPACE : SAUT", cx+14, cy+ch-24, cw-28, "left")
+        end
+        if explore.site ~= "comms" then Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj}) end
+        if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
+    elseif state == "reactor" then
+        Reactor.draw({color=color, rect=rect, panel=panel, centered=centered, f8=fonts.f8, f16=fonts.f16, f24=fonts.f24, aka=I.aka}, explorerSprites)
+    elseif state == "disembark" then
+        drawDisembark()
+    elseif state == "signal" then
+        Signal.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, f24=fonts.f24.obj})
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
@@ -1397,7 +1754,7 @@ local function showCards(mi, kind, done, sky, lastKey)
     state = "card"
 end
 
-local function beginMission(i)
+function beginMission(i)
     local m = Data.missions[i]
     showCards(i, "pre", function() startMission(i) end, m.sky, "card_launch")
 end
@@ -1418,7 +1775,43 @@ local function afterDebrief()
     if nextI > #Data.missions then
         showCards(missionIndex, "post", backToTitle, m.sky, "card_title")
     else
-        showCards(missionIndex, "post", function() beginMission(nextI) end, m.sky, "card_nextm")
+        showCards(missionIndex, "post", function()
+            local site = Dis.siteFor(missionIndex)
+            if site then
+                local from = missionIndex
+                loadExplorerSprites()
+                Dis.start(site, function()
+                    if from == 3 then
+                        explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
+                        explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
+                        explore.facing, explore.grounded = 1, true
+                        explore.repaired, explore.repairs, explore.logRead, explore.campaign = false, 0, false, true
+                        Station.reset()
+                        state = "explore"
+                    elseif from == 5 then
+                        explore.nextI = nextI
+                        Reactor.reset()
+                        state = "reactor"
+                    elseif from == 9 then
+                        explore.site = "comms"
+                        explore.nextI = nextI
+                        explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
+                        explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
+                        explore.facing, explore.grounded = 1, true
+                        Communications.reset()
+                        state = "explore"
+                    else
+                        unloadExplorerSprites()
+                        explore.nextI = nextI
+                        Signal.start(from)
+                        state = "signal"
+                    end
+                end)
+                state = "disembark"
+            else
+                beginMission(nextI)
+            end
+        end, m.sky, "card_nextm")
     end
 end
 
@@ -1503,6 +1896,15 @@ function Game.keypressed(key, scancode, isrepeat)
             menuSel = menuSel - 1; if menuSel < 1 then menuSel = #menu end; Audio.play("menu")
         elseif key == "down" then
             menuSel = menuSel + 1; if menuSel > #menu then menuSel = 1 end; Audio.play("menu")
+        elseif (key == "e" or (I.aka and key == "d")) and not isrepeat then
+            -- E sur PC ; bouton D sur AKA pour lancer la zone de test sans progresser dans la campagne.
+            explore.x, explore.y, explore.vy, explore.t, explore.repaired, explore.repairs, explore.logRead, explore.campaign = 100, 0, 0, 0, false, 0, false, false
+            explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
+            explore.facing, explore.grounded = 1, true
+            Station.reset()
+            loadExplorerSprites()
+            state = "explore"
+            Audio.play("menu")
         elseif key == "u" then
             Save.unlockAll = true; buildMenu()
         elseif confirm(key) then
@@ -1534,6 +1936,56 @@ function Game.keypressed(key, scancode, isrepeat)
             Save.save()
             state = "debrief"
         end
+    elseif state == "reactor" then
+        local ev = Reactor.keypressed(key, isrepeat)
+        if ev == "done" then beginMission(explore.nextI or 6) end
+    elseif state == "explore" then
+        local siteMode = explore.site == "comms" and Communications.s.mode or Station.s.mode
+        if siteMode ~= "walk" then
+            if explore.site ~= "comms" then
+            local _, ev = Station.key(key)
+            if ev and (ev == "move" or not isrepeat) then
+                Audio.play(ev == "bad" and "warn" or (ev == "solved" and "pickup" or "menu"))
+            end
+            end
+            return
+        end
+        if key == "space" and not isrepeat and explore.grounded and explore.y == 0 and (explore.vy or 0)==0 then
+            explore.vy = -205
+            explore.grounded = false
+            explore.walkT = 0
+            Audio.play("menu")
+        elseif (key == "e" or key == "a") and not isrepeat then
+            explore.interactT = 0.62
+            local m, ev
+            if explore.site == "comms" then m, ev = Communications.interact(explore.x)
+            else m, ev = Station.interact(explore.x) end
+            if m then toast, toastT = m, 5 end
+            if ev then Audio.play("menu") end
+            if ev == "signal" then
+                unloadExplorerSprites()
+                explore.site = nil
+                Signal.start(9)
+                state = "signal"
+            elseif ev == "exit" then
+                unloadExplorerSprites()
+                if explore.campaign then
+                    explore.campaign = false
+                    beginMission(4)
+                else
+                    state="title"
+                    buildMenu()
+                    toast="Rapport copie. Les systemes sont de nouveau operationnels. Rejoignons le sas."
+                    toastT=5
+                end
+            end
+        elseif key == "escape" then
+            unloadExplorerSprites()
+            state="title"
+            buildMenu()
+        end
+    elseif state == "disembark" then
+        if (confirm(key) or key == "e" or key == "a") and not isrepeat then Dis.skip() end
     elseif state == "debrief" then
         if confirm(key) then afterDebrief() end
     end

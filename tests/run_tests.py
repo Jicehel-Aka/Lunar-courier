@@ -91,6 +91,7 @@ if MODE ~= "noaudio" then
     local im = {w=w, h=h}
     function im:getWidth() return self.w end
     function im:getHeight() return self.h end
+    function im:getDimensions() return self.w, self.h end
     function im:setFilter() end
     return im
   end
@@ -120,6 +121,22 @@ Game._dbg = function()
           menuN=#menu, menuSel=menuSel, musicName=Audio.musicName, musicOn=Audio.musicOn,
           tgcheck=(function() local ok=true for i,p in ipairs(pads) do for x=p.x-PAD_HALF-8,p.x+PAD_HALF+8,4 do if groundAt(x)~=p.y then ok=false end end end return ok end)()}
 end
+Game._set = function(t)
+  for k,v in pairs(t) do ship[k] = v end
+  if t.fuel then fuel = t.fuel end
+  failed = false; hitCooldown = 0
+end
+Game._ship = function() return {x=ship.x, y=ship.y, vx=ship.vx, vy=ship.vy, angle=ship.angle, resting=ship.resting, landed=ship.landed, fuel=fuel, hull=hull, gy=groundAt(ship.x), failed=failed} end
+Game._begin = function(i) beginMission(i) end
+Game._explore = function() require('src.station').reset(); loadExplorerSprites(); explore.x, explore.y, explore.vy, explore.t = 100, 0, 0, 0; explore.repaired, explore.repairs, explore.campaign = false, 0, false; state = 'explore' end
+Game._tp = function(x) explore.x = x end
+Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
+Game._sg = function() local S = require('src.signal').s; return {f=S.f, p=S.p, tf=S.c.tf, tp=S.c.tp, locked=S.locked, match=S.match or 0, mul=explore.nextMul or 1} end
+Game._cm = function() local C = require('src.communications').s; return {room=C.room, checked=C.checked, repaired=C.repaired, d1=C.doors[1], d2=C.doors[2], mode=C.mode} end
+Game._sgset = function(f,p) local S = require('src.signal').s; S.f, S.p = f, p end
+Game._dis = function() local D = require('src.disembark').s; return {t=D.t or 0, active=D.active and 1 or 0} end
+Game._title = function() state = 'title'; buildMenu() end
+Game._forcegame = function() state = 'game'; paused = false end
 Game._maxg = function(x1,x2)
   if x1>x2 then x1,x2=x2,x1 end
   local lo = 9999
@@ -250,8 +267,240 @@ print("pre cards M1:", dbg()['state'], dbg()['ncards'])
 
 import ap
 autopilot = ap.make_autopilot(dbg, beams, debris, step, hold, clamp, lambda a,b: int(lua.eval(f'require("src.game")._maxg({a},{b})')))
+def run_station():
+    """Parcourt la station Argo (4 pieces) avec les vraies touches : portes, relais, mini-jeu, journal, sortie."""
+    G = 'require("src.game")'
+    def st(): 
+        t = lua.eval(G + '._st()'); return {k: t[k] for k in ('room','d1','d2','d3','repairs','solved','pages','log','mode','used','sel','x')}
+    def tp(x): lua.execute(G + '._tp(%d)' % x)
+    def check(cond, label):
+        if not cond:
+            print("STATION FAIL:", label, st()); FAILED.append("station: " + label)
+        return cond
+    ok = True
+    def cross(dir_key):
+        hold(dir_key, True); step(30); hold(dir_key, False); step(30)
+    # piece 1 : mur invisible tant que la porte est fermee
+    tp(300); hold('right', True); step(60); hold('right', False)
+    ok &= check(st()['x'] <= 500.5 and st()['room'] == 1, "porte 1 fermee bloque le passage")
+    key('a'); step(1)
+    ok &= check(st()['d1'], "console du sas ouvre la porte 1")
+    # on traverse la porte ouverte : la piece suivante commence sur sa porte de gauche
+    hold('right', True); step(24); hold('right', False); step(30)
+    ok &= check(st()['room'] == 2 and st()['x'] < 120, "traverser la porte 1 mene a la porte gauche de la piece 2")
+    # piece 2 : relais dans le mauvais ordre puis le bon
+    tp(270); key('a'); step(1)
+    ok &= check(st()['repairs'] == 0, "relais 2 avant 1 refuse")
+    tp(470); key('a'); step(1)
+    ok &= check(not st()['d2'], "porte 2 verrouillee")
+    for x in (190, 270, 350):
+        tp(x); key('a'); step(1)
+    ok &= check(st()['repairs'] == 3 and st()['d2'], "3 relais ouvrent la porte 2")
+    tp(540); cross('right')
+    ok &= check(st()['room'] == 3 and st()['x'] < 140, "passage en piece 3 par sa porte de gauche")
+    # retour arriere : la porte de gauche ramene devant la porte de la piece precedente
+    tp(60); hold('left', True); step(8); hold('left', False); step(30)
+    ok &= check(st()['room'] == 2 and st()['x'] > 500, "retour piece 2 devant sa porte de droite")
+    tp(540); cross('right')
+    ok &= check(st()['room'] == 3, "retour piece 3")
+    # piece 3 : notes puis mini-jeu
+    for x in (120, 250):
+        tp(x); key('a'); step(1)
+    tp(470); key('a'); step(1)
+    ok &= check(st()['mode'] == 'energy', "console ouvre le mini-jeu")
+    # essai raté : BALISE + JOURNAL + SAS (6) mais sans lumiere -> pas resolu
+    key('down'); step(1); key('a'); step(1)             # balise on (1)
+    key('down'); key('down'); step(1); key('a'); step(1)  # journal on (3) -> 4
+    key('up'); key('up'); key('up'); step(1); key('a'); step(1)  # sas on (2) -> 6
+    ok &= check(st()['used'] == 6 and not st()['solved'], "6 unites sans lumiere : non resolu")
+    key('down'); step(1); key('a'); step(1)             # balise off -> 5
+    key('down'); step(1); key('a'); step(1)             # eclairage on -> 6
+    ok &= check(st()['solved'] and st()['d3'] and st()['mode'] == 'walk', "sas+eclairage+journal resolvent")
+    # surcharge refusee
+    tp(540); cross('right')
+    ok &= check(st()['room'] == 4, "passage en piece 4")
+    # piece 4 : sortie verrouillee tant que le journal n'est pas lu
+    tp(470); key('a'); step(1)
+    ok &= check(st()['room'] == 4 and not st()['log'], "sortie verrouillee")
+    for i in range(3):
+        tp(300); key('a'); step(1)
+    ok &= check(st()['pages'] == 3 and st()['log'], "journal en 3 pages")
+    tp(470); key('a'); step(1)
+    return ok
+
+def run_signal(mi):
+    """Mini-jeu d'accord du signal : touches reelles, puis alignement sur la cible, verrouillage, vol suivant."""
+    G = 'require("src.game")'
+    def sg():
+        t = lua.eval(G + '._sg()'); return {k: t[k] for k in ('f','p','tf','tp','locked','match','mul')}
+    ok = True
+    s0 = sg(); step(2)
+    hold('right', True); step(15); hold('right', False)
+    s1 = sg()
+    if not s1['f'] > s0['f'] + 0.1: print("SIGNAL FAIL: droite n'augmente pas la frequence", s0, s1); FAILED.append("signal freq"); ok = False
+    hold('up', True); step(10); hold('up', False)
+    s2 = sg()
+    if abs(s2['p'] - s1['p']) < 0.05: print("SIGNAL FAIL: haut ne change pas la phase", s1, s2); FAILED.append("signal phase"); ok = False
+    step(60)
+    if sg()['locked']: print("SIGNAL FAIL: verrouille sans accord"); FAILED.append("signal lock early"); ok = False
+    lua.execute(G + '._sgset(%f,%f)' % (s2['tf'], s2['tp']))
+    step(50)
+    if not sg()['locked'] or sg()['match'] < 0.9: print("SIGNAL FAIL: pas de verrouillage a l'accord", sg()); FAILED.append("signal lock"); ok = False
+    step(80)
+    d = dbg()
+    if d['state'] != 'card': print("SIGNAL FAIL: pas de vol apres l'accord", d['state']); FAILED.append("signal exit"); ok = False
+    return ok
+
+def run_disembark(mi, natural):
+    """Debarquement apres M3/M5/M9 : le temps avance, la touche d'action passe la scene, sinon elle se termine seule."""
+    G = 'require("src.game")'
+    t0 = lua.eval(G + '._dis().t'); step(60); t1 = lua.eval(G + '._dis().t')
+    ok = True
+    if not t1 > t0 + 1.0: print("DISEMBARK FAIL: le temps n'avance pas", t0, t1); FAILED.append("disembark time"); ok = False
+    if natural:
+        n = 0
+        while dbg()['state'] == 'disembark' and n < 900: step(1); n += 1
+        if n >= 900 or n < 150: print("DISEMBARK FAIL: duree anormale", n); FAILED.append("disembark length M%d" % mi); ok = False
+    else:
+        key('a'); step(2)
+    want = {3: 'explore', 5: 'reactor', 9: 'explore'}.get(mi, 'signal')
+    if dbg()['state'] != want: print("DISEMBARK FAIL: attendu", want, "obtenu", dbg()['state']); FAILED.append("disembark exit M%d" % mi); ok = False
+    return ok
+
+def run_comms():
+    """M9 : explorer le sas, retablir le relais, reparer les connecteurs puis ouvrir l'accord du signal."""
+    G = 'require("src.game")'
+    def cm():
+        t = lua.eval(G + '._cm()')
+        return {k: t[k] for k in ('room','checked','repaired','d1','d2','mode')}
+    def tp(x): lua.execute(G + '._tp(%d)' % x)
+    ok = True
+    def need(cond, label):
+        nonlocal ok
+        if not cond:
+            print("COMMS FAIL:", label, cm(), dbg()['state'])
+            FAILED.append("communications: " + label)
+            ok = False
+    # Salle 1 : examiner puis remettre le relais de securite sous tension.
+    tp(470); key('e'); step(1)
+    need(cm()['checked'] and dbg()['state']=='explore', "inspection du panneau")
+    key('e'); step(1)
+    need(cm()['d1'], "relais de securite retabli")
+    hold('right', True); step(30); hold('right', False); step(25)
+    need(cm()['room']==2, "passage vers le couloir technique")
+    # Salle 2 : rebrancher le boitier central.
+    tp(310); key('e'); step(1)
+    need(cm()['repaired'] and cm()['d2'], "connecteurs rebranches")
+    tp(500); hold('right', True); step(30); hold('right', False); step(25)
+    need(cm()['room']==3, "passage vers la salle de reception")
+    # Salle 3 : interaction avec le recepteur ouvre le mini-jeu, sans le court-circuiter.
+    tp(470); key('e'); step(1)
+    need(dbg()['state']=='signal', "le recepteur lance le mini-jeu de signal")
+    return ok
+
+def run_reactor():
+    """M5 : inserer le module, regler les trois bobines (A=1, B=3, C=2), demarrer le reacteur, puis M6."""
+    ok = True
+    def need(cond, label):
+        nonlocal ok
+        if not cond: print("REACTOR FAIL:", label, dbg()['state']); FAILED.append("reactor: " + label); ok = False
+    for _ in range(6): key('right'); step(1)
+    key('e'); step(1)                                   # module insere
+    for _ in range(7): key('right'); step(1)
+    key('e'); step(1)                                   # console
+    key('e'); step(1)                                   # phases fausses : refus
+    need(dbg()['state'] == 'reactor', "refus si phases fausses")
+    for target in (1, 3, 2):
+        for _ in range(target): key('up'); step(1)
+        key('right'); step(1)
+    key('e'); step(1)
+    step(120)
+    need(dbg()['state'] == 'card', "enchainement vers M6 apres le reacteur")
+    return ok
+
 results={}
 advance_to_game()
+
+# ---------------------------------------------------------------- 2b. physique d'atterrissage (hors plateforme)
+def ship_state():
+    t = lua.eval('require("src.game")._ship()'); return {k: t[k] for k in t}
+def setship(**kw):
+    items = ",".join(f"{k}={('true' if v is True else 'false' if v is False else v)}" for k,v in kw.items())
+    lua.execute('require("src.game")._set({'+items+'})')
+PHYS = []
+def phys_land(label, angle, vy, vx=0.0, fuel=100, x=None, secs=8.0, takeoff=True):
+    d = dbg(); pad_x = d['padx']
+    gx = x if x is not None else min(560, pad_x + 160) if pad_x < 420 else pad_x - 160
+    gy = lua.eval(f'require("src.game")._maxg({gx},{gx})')
+    setship(x=gx, y=gy-60, vx=vx, vy=vy, angle=angle, fuel=fuel, resting=False, landed=False)
+    contacts = 0; prev_vy = vy; rest_frames = 0; hist = []
+    for _ in range(int(secs*30)):
+        step(1); st = ship_state(); hist.append(st)
+        if st['vy'] < 0 and prev_vy >= 0 and st['gy'] - st['y'] < 16: contacts += 1
+        prev_vy = st['vy']
+        if st['resting']: rest_frames += 1
+    st = ship_state()
+    rec = {"label": label, "rest_frames": rest_frames, "contacts": contacts, "angle": round(st['angle'],2), "hull": st['hull'], "failed": st['failed']}
+    if takeoff and not st['failed'] and st['fuel'] > 0:
+        gy0 = st['y']
+        hold('up', True); step(60); hold('up', False)
+        st2 = ship_state(); rec["lift"] = round(gy0 - st2['y'], 1)
+    PHYS.append(rec); return rec
+PHYS_PROBLEMS = []
+LEAKS = {}
+def run_physics():
+    global badx, PHYS_PROBLEMS, LEAKS
+    lua.execute('require("src.game")._begin(1)'); lua.execute('require("src.game")._forcegame()')
+    for lab, ang, vy in (("plat", 0.0, 20), ("incline 0.25", 0.25, 20), ("incline 0.45", 0.45, 20), ("incline 0.6", 0.6, 20), ("incline 0.9", 0.9, 25), ("rapide", 0.0, 55), ("tres rapide", 0.0, 80)):
+        r = phys_land(lab, ang, vy)
+        print("PHYS", r)
+    for lab, kw in (("fuel 0", dict(angle=0.0, vy=20, fuel=0, takeoff=False)), ("vx 60", dict(angle=0.0, vy=20, vx=60)), ("vx 90 incline", dict(angle=0.4, vy=30, vx=90)), ("renverse", dict(angle=2.5, vy=20))):
+        r = phys_land(lab, **kw); print("PHYS", r)
+    # balayage : poses a de nombreux x (bords de plateforme, pentes), sur les 18 missions ; re-decollage obligatoire
+    badx = []; nsweep = 0
+    for mi in range(1, nm+1):
+        lua.execute(f'require("src.game")._begin({mi})')
+        if dbg()['state'] != 'game': lua.execute('require("src.game")._forcegame()')
+        wwid = int(dbg()['worldW'])
+        for gx in range(30, wwid-30, 23):
+            for ang, vx in ((0.0, 0), (0.35, 40), (-0.4, -50)):
+                lua.execute(f'require("src.game")._begin({mi})'); lua.execute('require("src.game")._forcegame()')
+                r = phys_land(f"M{mi} x{gx}", ang, 22, vx=vx, x=gx, secs=2.5); nsweep += 1
+                st = ship_state()
+                if st['landed']: continue                       # pose sur la plateforme finale : mission terminee, normal
+                if r.get('lift', 999) < 60 or r['contacts'] > 3: badx.append((mi, gx, ang, vx, r))
+    print("PHYS sweep:", nsweep, "poses,", len(badx), "problemes", [(b[0], b[1], b[2], b[4].get('lift'), b[4]['contacts']) for b in badx][:12])
+
+    # ---------------------------------------------------------------- 2c. fuite memoire Lua en inactivite prolongee
+    def lua_mem():
+        lua.execute("collectgarbage('collect'); collectgarbage('collect')"); return float(lua.eval("collectgarbage('count')"))
+    LEAKS = {}
+    def leak_probe(label, setup, frames=3000):
+        setup(); step(30); m0 = lua_mem()
+        for _ in range(frames): step(1)
+        m1 = lua_mem(); LEAKS[label] = round(m1-m0, 1)
+        print("LEAK", label, "frames", frames, "delta KB", LEAKS[label], "| total KB", round(m1))
+    lua.execute('require("src.game")._begin(1)'); lua.execute('require("src.game")._forcegame()')
+    setship(x=300, y=100, vx=0, vy=0, angle=0, resting=False, landed=False)
+    leak_probe("vol en cours (ship pose hors plateforme)", lambda: setship(x=200, y=lua.eval('require("src.game")._maxg(200,200)')-12, vx=0, vy=0))
+    leak_probe("vol avec poussee et particules", lambda: hold('up', True), 600); hold('up', False)
+    lua.execute('require("src.game")._explore()')
+    leak_probe("station (explore) inactive", lambda: None)
+    lua.execute('require("src.game")._title()')
+    leak_probe("ecran titre inactif", lambda: None)
+    PHYS_PROBLEMS = []
+    for r in [x for x in PHYS if not x['label'].startswith('M')]:
+        if r['label'] in ('incline 0.6', 'incline 0.9', 'renverse') and r['contacts'] > 0: PHYS_PROBLEMS.append(f"rebonds repetes sur pose inclinee: {r}")
+        if r['label'] == 'fuel 0' and not r['failed']: PHYS_PROBLEMS.append(f"pose sans carburant : blocage non detecte: {r}")
+        if r['label'] not in ('fuel 0',) and r.get('lift', 0) < 60: PHYS_PROBLEMS.append(f"redecollage impossible: {r}")
+    if badx: PHYS_PROBLEMS.append(f"balayage de pose : {len(badx)} cas sans redecollage ou avec rebonds repetes, ex. {badx[0]}")
+    for k, v in LEAKS.items():
+        if v > 30: PHYS_PROBLEMS.append(f"fuite memoire Lua en inactivite ({k}) : +{v} Ko")
+    print("PHYSIQUE/MEMOIRE:", PHYS_PROBLEMS or "ok")
+
+if mode == "physics":
+    run_physics()
+    sys.exit(1 if PHYS_PROBLEMS else 0)
 total_attempts=0
 FAILED=[]
 for mi in range(1, nm+1):
@@ -277,6 +526,28 @@ for mi in range(1, nm+1):
         if dbg()['state']=='card': seen+=1
         key('space'); step(1); g+=1
     d=dbg()
+    # M03 ouvre une sequence d'exploration avant M04 : reparer les 3 relais puis lire le terminal.
+    # Simule les commandes joueur au lieu de sauter l'interlude narratif.
+    if mi in (3, 5, 9):
+        if d['state'] != 'disembark':
+            print("expected disembark after M%d, got" % mi, d['state']); FAILED.append("disembark missing M%d" % mi)
+        else:
+            run_disembark(mi, mi == 5); d = dbg()
+    if mi == 3 and d['state'] == 'explore':
+        ok_st = run_station()
+        d = dbg()
+        if not ok_st or d['state'] != 'card' or d['cardIdx'] != 1:
+            print("station interlude did not launch M04:", d['state'], d['mi'], d['cardIdx'])
+            FAILED.append("station interlude")
+    if mi == 9 and d['state'] == 'explore':
+        run_comms(); d = dbg()
+    if mi == 5 and d['state'] == 'reactor':
+        run_reactor(); d = dbg()
+    elif mi in (5, 9):
+        if d['state'] != 'signal':
+            print("expected signal mini-game after M%d, got" % mi, d['state']); FAILED.append("signal missing M%d" % mi)
+        else:
+            run_signal(mi); d = dbg()
     # entering next mission: pre cards counted inside 'seen'
     print(f"M{mi:02d}: attempts={results[mi][0]} fuel={results[mi][1]} hull={results[mi][2]} t={results[mi][3]}s | debrief={st_deb} cards_shown={seen} -> state={d['state']} mi={d['mi']}")
     if d['state']=='card':
@@ -287,6 +558,9 @@ if mode != "noaudio":
     a = lua.eval('__aud()')
     print("audio loaded:", sorted(k for k in a['loaded']), "missing:", sorted(k for k in a['missing']) or "none")
     print("audio plays:", {k: a['plays'][k] for k in a['plays']})
+
+if mode != "physics":
+    run_physics()
 
 # ---------------------------------------------------------------- 3. PC / langues / menu / capture
 EXTRA = []
@@ -354,6 +628,7 @@ else:
 for k in v: problems.append("violation: "+str(k))
 if FAILED: problems.append("missions not completed: "+str(FAILED))
 for x in EXTRA: problems.append("extra: "+x)
+for x in PHYS_PROBLEMS: problems.append("physique: "+x)
 if CONTENT: problems.append("content: "+str(CONTENT))
 if problems:
     print("TEST PROBLEMS:"); [print("  -", x) for x in problems]; sys.exit(1)

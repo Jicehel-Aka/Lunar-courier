@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : Le reseau converge vers le Coeur. Le module que vous portez doit y etre livre : son code est le seul qui ouvre le sas.\n\nLUNA : La balise est sur un plateau. Montez, puis posez-vous bien droit."},
   },
   post={
-   {"TRANSMISSION RECUE", "Le module s'emboite parfaitement. Le reacteur reconnait le code du colis : il attendait cette livraison depuis des annees.\n\nLUNA : Etrange. J'ai reconnu la sequence du code avant meme que le sas ne la demande."},
+   {"TRANSMISSION RECUE", "Le sas accepte le module, mais le reacteur reste muet. Les plans indiquent un logement central et une console de commandement.\n\nLUNA : Le code m'est familier. Mais la phase de demarrage... je ne comprends pas pourquoi."},
   },
   radio={}},
 -- M6
@@ -63,20 +63,20 @@ return {
 -- M7
  {name="AU DELA DE L'HORIZON", objective="Reveiller la balise Beta",
   pre={
-   {"LA FACE CACHEE", "CHAPITRE 2\n\nLa route de lumiere court vers la face que la Terre ne voit jamais. LUNA previent : la-bas, aucune liaison radio. Vous n'aurez que les balises pour vous guider."},
-   {"BRIEFING", "LUNA : Dans quelques minutes la Terre passera sous l'horizon. Quand elle disparaitra, je perdrai la liaison.\n\nLUNA : Pas de panique : la balise Beta sera notre prochain phare. Prenez la capsule, puis posez-vous."},
+   {"LA FACE CACHEE", "CHAPITRE 2\n\nLa route de lumiere court vers la face que la Terre ne voit jamais. Plus aucune liaison avec la Terre la-bas. Vous n'aurez que les balises, et la voix de LUNA, a bord."},
+   {"BRIEFING", "LUNA : Dans quelques minutes la Terre passera sous l'horizon. Quand elle disparaitra, je perdrai la liaison avec le Controle. Pas avec vous : je vis dans ce vaisseau, pilote.\n\nLUNA : Pas de panique : la balise Beta sera notre prochain phare. Prenez la capsule, puis posez-vous."},
   },
   post={
    {"TRANSMISSION RECUE", "Beta repond avec une signature : I. VARGA, commandant de la station Argo. La voix du message n'etait donc pas une IA. Quelqu'un a construit ce reseau en sachant qu'un autre pilote viendrait.\n\nLUNA : Ines Varga... Le nom est dans mes archives."},
   },
-  radio={"LUNA : La Terre passe sous l'horizon... liaison perdue."}},
+  radio={"LUNA : La Terre passe sous l'horizon. Liaison Terre perdue."}},
 -- M8
  {name="SILENCE RADIO", objective="Relayer le signal",
   pre={
-   {"BRIEFING", "LUNA : Silence radio total. Mes instruments de vitesse seront parfois instables, pilote : fiez-vous a vos yeux.\n\nLUNA : Un vent de poussiere souffle du nord. Il poussera le vaisseau : compensez en inclinant."},
+   {"BRIEFING", "LUNA : Plus aucune voix de la Terre : je ne vous parle que depuis le vaisseau. Mes instruments de vitesse seront parfois instables, pilote : fiez-vous a vos yeux.\n\nLUNA : Un vent de poussiere souffle du nord. Il poussera le vaisseau : compensez en inclinant."},
   },
   post={
-   {"TRANSMISSION RECUE", "Sans lien avec la Terre, LUNA capte un enregistrement de Varga : 'Ici, les ondes ne portent pas. Alors j'ai construit une route de lumiere.'\n\nLUNA : Les balises sont ses mots, allumes un a un. Elle a ecrit cela pour quelqu'un qu'elle ne connaissait pas. Pour vous."},
+   {"TRANSMISSION RECUE", "Sans lien avec la Terre, LUNA capte, par les balises, un enregistrement de Varga : 'Ici, les ondes ne portent pas. Alors j'ai construit une route de lumiere.'\n\nLUNA : Les balises sont ses mots, allumes un a un. Elle a ecrit cela pour quelqu'un qu'elle ne connaissait pas. Pour vous."},
   },
   radio={"LUNA : Mes mesures sont brouillees. Fiez-vous a vos yeux.", "LUNA : Le vent faiblit par moments. Profitez des accalmies."}},
 -- M9
@@ -151,6 +151,7 @@ return {
 -- M16
  {name="LA GORGE DES OMBRES", objective="Franchir la gorge",
   pre={
+   {"RESEAU RETABLI", "Les Lucioles ont synchronise les balises. Le relais Argo renvoie enfin une impulsion vers la Terre. Une fenetre de transmission vient de s ouvrir.\n\nLUNA : Le reseau est de nouveau alimente. Quelqu un nous repond."},
    {"CENTRE LAGRANGE", "CONTROLE : ...ici Centre Lagrange, repondez... Pilote, nous recevons vos balises depuis ce matin. Nous pensions la Lune perdue. Qui etes-vous ?\n\nLUNA : Ici le Courier, vaisseau de livraison lunaire. Nous allumons la route."},
    {"CENTRE LAGRANGE", "CONTROLE : Ici Theo Marchand, controleur. Vos balises clignotent en code depuis onze ans. Un seul mot, repete. Nous avons mis du temps a le lire.\n\nCONTROLE : VIVANTS. Ca disait : VIVANTS."},
    {"BRIEFING", "LUNA : La gorge des Ombres. Les rayons y rebondissent sur les parois : trois eclairs, trois rythmes.\n\nLUNA : Passez entre les eclairs, pilote. Un seul contact et vous perdez de la coque, pas votre sang-froid."},

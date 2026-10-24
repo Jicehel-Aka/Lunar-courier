@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : The network converges on the Heart. The module you carry must be delivered there: its code is the only one that opens the airlock.\n\nLUNA : The beacon is on a plateau. Climb, then land nice and level."},
   },
   post={
-   {"INCOMING TRANSMISSION", "The module fits perfectly. The reactor recognises the package code: it has waited for this delivery for years.\n\nLUNA : Strange. I recognised the code sequence before the airlock even asked for it."},
+   {"INCOMING TRANSMISSION", "The airlock accepts the module, but the reactor stays silent. The plans show a central slot and a command console.\n\nLUNA : The code feels familiar. But the start-up phase... I do not understand why."},
   },
   radio={}},
 -- M6
@@ -63,20 +63,20 @@ return {
 -- M7
  {name="BEYOND THE HORIZON", objective="Wake the Beta beacon",
   pre={
-   {"THE FAR SIDE", "CHAPTER 2\n\nThe road of light runs toward the side Earth never sees. LUNA warns: no radio link out there. You will only have the beacons to guide you."},
-   {"BRIEFING", "LUNA : In a few minutes Earth will sink below the horizon. When it vanishes, I lose the link.\n\nLUNA : Don't panic: the Beta beacon will be our next lighthouse. Take the capsule, then land."},
+   {"THE FAR SIDE", "CHAPTER 2\n\nThe road of light runs toward the side Earth never sees. No link with Earth out there. You will only have the beacons, and LUNA's voice from aboard."},
+   {"BRIEFING", "LUNA : In a few minutes Earth will sink below the horizon. When it vanishes, I lose the link with Control. Not with you: I live in this ship, pilot.\n\nLUNA : Don't panic: the Beta beacon will be our next lighthouse. Take the capsule, then land."},
   },
   post={
    {"INCOMING TRANSMISSION", "Beta answers with a signature: I. VARGA, commander of the Argo station. So the voice in the message was not an AI. Someone built this network knowing another pilot would come.\n\nLUNA : Ines Varga... The name is in my archives."},
   },
-  radio={"LUNA : Earth is sinking below the horizon... link lost."}},
+  radio={"LUNA : Earth is below the horizon. Earth link lost."}},
 -- M8
  {name="RADIO SILENCE", objective="Relay the signal",
   pre={
-   {"BRIEFING", "LUNA : Total radio silence. My speed readings will sometimes be unstable, pilot: trust your own eyes.\n\nLUNA : A dust wind blows from the north. It will push the ship: compensate by tilting."},
+   {"BRIEFING", "LUNA : No voice from Earth now: I only speak to you from inside the ship. My speed readings will sometimes be unstable, pilot: trust your own eyes.\n\nLUNA : A dust wind blows from the north. It will push the ship: compensate by tilting."},
   },
   post={
-   {"INCOMING TRANSMISSION", "With no link to Earth, LUNA picks up a recording of Varga: 'Here, radio waves do not carry. So I built a road of light.'\n\nLUNA : The beacons are her words, lit one by one. She wrote this for someone she never met. For you."},
+   {"INCOMING TRANSMISSION", "With no link to Earth, LUNA picks up, through the beacons, a recording of Varga: 'Here, radio waves do not carry. So I built a road of light.'\n\nLUNA : The beacons are her words, lit one by one. She wrote this for someone she never met. For you."},
   },
   radio={"LUNA : My readings are scrambled. Trust your eyes.", "LUNA : The wind drops at times. Make use of the lulls."}},
 -- M9
@@ -151,6 +151,7 @@ return {
 -- M16
  {name="SHADOW GORGE", objective="Cross the gorge",
   pre={
+   {"NETWORK RESTORED", "The Fireflies synchronized the beacons. Argo relay is finally sending a pulse toward Earth. A transmission window just opened.\n\nLUNA : The network is powered again. Someone is answering."},
    {"LAGRANGE CENTRE", "CONTROL : ...this is Lagrange Centre, come in... Pilot, we have been receiving your beacons since this morning. We thought the Moon was lost. Who are you?\n\nLUNA : This is the Courier, lunar delivery ship. We are lighting the road."},
    {"LAGRANGE CENTRE", "CONTROL : This is Theo Marchand, controller. Your beacons have been blinking in code for eleven years. One word, repeated. It took us a while to read it.\n\nCONTROL : ALIVE. It said: ALIVE."},
    {"BRIEFING", "LUNA : Shadow Gorge. The rays bounce off the walls there: three flashes, three rhythms.\n\nLUNA : Slip between the flashes, pilot. One touch and you lose hull, not your composure."},

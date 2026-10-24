@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : Das Netz laeuft im Herz zusammen. Das Modul, das du traegst, muss dort abgeliefert werden: Sein Code oeffnet als einziger die Schleuse.\n\nLUNA : Die Bake steht auf einem Plateau. Steig auf und lande schoen waagerecht."},
   },
   post={
-   {"NACHRICHT EMPFANGEN", "Das Modul passt perfekt. Der Reaktor erkennt den Paketcode: Er wartet seit Jahren auf diese Lieferung.\n\nLUNA : Seltsam. Ich kannte die Codefolge, bevor die Schleuse danach fragte."},
+   {"NACHRICHT EMPFANGEN", "Die Schleuse nimmt das Modul an, doch der Reaktor bleibt stumm. Die Plaene zeigen einen zentralen Schacht und eine Kommandokonsole.\n\nLUNA : Der Code kommt mir bekannt vor. Aber die Startphase... ich verstehe nicht, warum."},
   },
   radio={}},
 -- M6
@@ -63,20 +63,20 @@ return {
 -- M7
  {name="JENSEITS DES RANDS", objective="Beta-Bake wecken",
   pre={
-   {"DIE RUECKSEITE", "KAPITEL 2\n\nDie Strasse aus Licht fuehrt zur Seite, die die Erde nie sieht. LUNA warnt: kein Funk dort draussen. Nur die Baken weisen dir den Weg."},
-   {"BRIEFING", "LUNA : In wenigen Minuten versinkt die Erde hinter dem Horizont. Wenn sie verschwindet, verliere ich die Verbindung.\n\nLUNA : Keine Panik: Die Beta-Bake wird unser naechster Leuchtturm. Nimm die Kapsel, dann lande."},
+   {"DIE RUECKSEITE", "KAPITEL 2\n\nDie Strasse aus Licht fuehrt zur Seite, die die Erde nie sieht. Dort draussen keine Verbindung zur Erde. Nur die Baken und LUNAs Stimme an Bord."},
+   {"BRIEFING", "LUNA : In wenigen Minuten versinkt die Erde hinter dem Horizont. Wenn sie verschwindet, verliere ich die Verbindung zur Kontrolle. Nicht zu dir: Ich lebe in diesem Schiff, Pilot.\n\nLUNA : Keine Panik: Die Beta-Bake wird unser naechster Leuchtturm. Nimm die Kapsel, dann lande."},
   },
   post={
    {"NACHRICHT EMPFANGEN", "Beta antwortet mit einer Signatur: I. VARGA, Kommandantin der Station Argo. Die Stimme der Nachricht war also keine KI. Jemand baute dieses Netz im Wissen, dass ein weiterer Pilot kommt.\n\nLUNA : Ines Varga... Der Name steht in meinen Archiven."},
   },
-  radio={"LUNA : Die Erde versinkt am Horizont... Verbindung verloren."}},
+  radio={"LUNA : Erde unter dem Horizont. Erdverbindung verloren."}},
 -- M8
  {name="FUNKSTILLE", objective="Signal weiterleiten",
   pre={
-   {"BRIEFING", "LUNA : Totale Funkstille. Meine Geschwindigkeitswerte sind manchmal instabil, Pilot: Vertrau deinen Augen.\n\nLUNA : Ein Staubwind weht von Norden. Er drueckt das Schiff: Gleiche durch Neigen aus."},
+   {"BRIEFING", "LUNA : Keine Stimme mehr von der Erde: Ich spreche nur noch aus dem Schiff. Meine Geschwindigkeitswerte sind manchmal instabil, Pilot: Vertrau deinen Augen.\n\nLUNA : Ein Staubwind weht von Norden. Er drueckt das Schiff: Gleiche durch Neigen aus."},
   },
   post={
-   {"NACHRICHT EMPFANGEN", "Ohne Verbindung zur Erde faengt LUNA eine Aufnahme von Varga auf: 'Hier tragen Funkwellen nicht. Also baute ich eine Strasse aus Licht.'\n\nLUNA : Die Baken sind ihre Worte, eins nach dem anderen entzuendet. Sie schrieb das fuer jemanden, den sie nie traf. Fuer dich."},
+   {"NACHRICHT EMPFANGEN", "Ohne Verbindung zur Erde faengt LUNA ueber die Baken eine Aufnahme von Varga auf: 'Hier tragen Funkwellen nicht. Also baute ich eine Strasse aus Licht.'\n\nLUNA : Die Baken sind ihre Worte, eins nach dem anderen entzuendet. Sie schrieb das fuer jemanden, den sie nie traf. Fuer dich."},
   },
   radio={"LUNA : Meine Werte sind gestoert. Vertrau deinen Augen.", "LUNA : Der Wind laesst manchmal nach. Nutze die Flauten."}},
 -- M9
@@ -151,6 +151,7 @@ return {
 -- M16
  {name="SCHATTENSCHLUCHT", objective="Schlucht durchqueren",
   pre={
+   {"NETZ WIEDER AKTIV", "Die Leuchtkaefer synchronisierten die Baken. Relais Argo sendet endlich einen Impuls zur Erde. Ein Sendefenster ist offen.\n\nLUNA : Das Netz ist wieder aktiv. Jemand antwortet."},
    {"ZENTRUM LAGRANGE", "KONTROLLE : ...hier Zentrum Lagrange, bitte melden... Pilot, wir empfangen deine Baken seit heute Morgen. Wir hielten den Mond fuer verloren. Wer bist du?\n\nLUNA : Hier der Courier, Lieferschiff des Mondes. Wir zuenden die Strasse."},
    {"ZENTRUM LAGRANGE", "KONTROLLE : Hier Theo Marchand, Fluglotse. Deine Baken blinken seit elf Jahren im Code. Ein Wort, immer wieder. Wir brauchten lange, es zu lesen.\n\nKONTROLLE : LEBEND. Es hiess: LEBEND."},
    {"BRIEFING", "LUNA : Schattenschlucht. Die Strahlen prallen von den Waenden ab: drei Blitze, drei Rhythmen.\n\nLUNA : Schluepfe zwischen den Blitzen durch, Pilot. Eine Beruehrung kostet Huelle, nicht die Ruhe."},
