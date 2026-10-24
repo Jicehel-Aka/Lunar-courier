@@ -391,7 +391,7 @@ def run_comms():
     # Salle 2 : rebrancher le boitier central.
     tp(310); key('e'); step(1)
     need(cm()['repaired'] and cm()['d2'], "connecteurs rebranches")
-    hold('right', True); step(30); hold('right', False); step(25)
+    tp(500); hold('right', True); step(30); hold('right', False); step(25)
     need(cm()['room']==3, "passage vers la salle de reception")
     # Salle 3 : interaction avec le recepteur ouvre le mini-jeu, sans le court-circuiter.
     tp(470); key('e'); step(1)
