@@ -1278,8 +1278,8 @@ local function drawTitle()
         else centered(it.label, y, fonts.f24, {82,229,218}) end
         y = y + 26
     end
-    centered(I.t("hint1"), 386, fonts.f24, {158,184,202})
-    centered(I.t("hint2"), 409, fit(I.t("hint2"), 620, {fonts.f24, fonts.f16}), {158,184,202})
+    centered(I.t("hint1"), 390, fonts.f24, {158,184,202})
+    centered(I.t("hint2"), 413, fit(I.t("hint2"), 620, {fonts.f24, fonts.f16}), {158,184,202})
     if I.aka then
         centered("D : TEST STATION FANTOME", 462, fonts.f12, {255,190,79})
     end
@@ -1458,7 +1458,7 @@ local function drawCard()
     drawLines(vis, 70, 174, 500, fonts.f16, cols, 20)
     if shown >= #c[2] then
         local prompt = (cardIdx == #list) and I.t(cardLastKey) or I.t("card_next")
-        centered(prompt, 432, fonts.f16, {255,190,81})
+        centered(prompt, 428, fonts.f16, {255,190,81})
     end
     centered(cardIdx.."/"..#list, 454, fonts.f16, {90,110,130})
 end
