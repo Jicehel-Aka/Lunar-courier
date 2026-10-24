@@ -12,6 +12,15 @@ local CFG = {
     [9] = {title="MESSAGE DE VARGA", intro="Le message est brouille. Accordez le recepteur sur la face cachee.",
            done="Message recu : 'Apporte-moi de l'energie.' LUNA : consommation reduite de 20 %.",
            tf=4.4, tp=0.65, f0=5.6, p0=0.10, tol=0.12, hint=true, bonus=0.80},
+    [15] = {title="LES LUCIOLES", intro="Les drones emettent un motif lumineux. Accordez les balises pour suivre leur route.",
+            done="Les Lucioles ouvrent la route du nord. LUNA : je reconnais ce motif... mais pourquoi ?",
+            tf=2.7, tp=0.42, f0=5.4, p0=0.05, tol=0.15, hint=true, bonus=0.95},
+    [16] = {title="APPEL DE LA TERRE", intro="Le Centre Lagrange repond enfin. Stabilisez le signal pour transmettre votre position.",
+            done="CONTROLE : Signal recu ! Nous vous entendons, Courier. La Terre sait que vous etes vivants.",
+            tf=3.6, tp=0.18, f0=1.2, p0=0.72, tol=0.14, hint=true, bonus=0.95},
+    [17] = {title="LE COEUR DU PHARE", intro="Le Phare attend la signature de LUNA. Accordez le noyau avant le dernier vol.",
+            done="LUNA : Signature confirmee. Je suis prete, pilote. Allons jusqu'au sommet.",
+            tf=5.1, tp=0.54, f0=2.0, p0=0.02, tol=0.13, hint=true, bonus=0.90},
 }
 Sg.CFG = CFG
 
