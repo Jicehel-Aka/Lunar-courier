@@ -885,9 +885,9 @@ local function drawTerrain()
     end
     if love.graphics.setLineWidth then love.graphics.setLineWidth(1) end
     -- Strates sombres et petites inclusions minerales, deterministes pour rester legers.
-    for _,s in ipairs(details.strata) do
+    for si,s in ipairs(details.strata) do
         local sx = s.x - cx
-        if sx > -20 and sx < W then
+        if sx > -20 and sx < W and (si % 2 == 1 or s.alt) then
             local y = groundAt(s.x) + s.dy
             if y < H-3 then
                 colorT(s.alt and {27,39,51} or {39,51,63})
@@ -908,10 +908,10 @@ local function drawTerrain()
         end
     end
     colorT(p.speck)
-    for _,s in ipairs(details.specks) do
+    for ki,s in ipairs(details.specks) do
         local sx = s.x - cx
         local y = maxG + s.dy
-        if sx > -8 and sx < W and y < H then rect(sx, y, s.w, s.h) end
+        if sx > -8 and sx < W and y < H and ki % 2 == 1 then rect(sx, y, s.w, s.h) end
     end
 end
 
@@ -1113,10 +1113,10 @@ local function drawMiniMap()
     panel(336, 8, 294, 58)
     -- profil du terrain (70 colonnes) puis marqueurs
     color(28,64,78)
-    for k = 0, 33 do
-        local gy = tg[math.floor(k * (ncol-1) / 33)] or 390
+    for k = 0, 16 do   -- 17 barres de 16 px (34 de 8 px avant : moitie moins de formes)
+        local gy = tg[math.floor(k * (ncol-1) / 16)] or 390
         local h = clamp(math.floor((480 - gy) * 30 / 300), 2, 34)
-        rect(x0 + k*8, 60 - h, 8, h)
+        rect(x0 + k*16, 60 - h, 16, h)
     end
     for i,p in ipairs(pads) do
         if padDone[i] then color(80,240,150) elseif i == padIndex then color(53,215,211) else color(60,110,120) end
