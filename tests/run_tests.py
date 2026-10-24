@@ -176,6 +176,8 @@ end
 Game._set = function(t)
   for k,v in pairs(t) do ship[k] = v end
   if t.fuel then fuel = t.fuel end
+  if t.hull then hull = t.hull end
+  if t.cargo then cargo = t.cargo end
   failed = false; hitCooldown = 0
 end
 Game._ship = function() return {x=ship.x, y=ship.y, vx=ship.vx, vy=ship.vy, angle=ship.angle, resting=ship.resting, landed=ship.landed, fuel=fuel, hull=hull, gy=groundAt(ship.x), failed=failed} end
@@ -491,7 +493,7 @@ def phys_land(label, angle, vy, vx=0.0, fuel=100, x=None, secs=8.0, takeoff=True
     d = dbg(); pad_x = d['padx']
     gx = x if x is not None else min(560, pad_x + 160) if pad_x < 420 else pad_x - 160
     gy = lua.eval(f'require("src.game")._maxg({gx},{gx})')
-    setship(x=gx, y=gy-60, vx=vx, vy=vy, angle=angle, fuel=fuel, resting=False, landed=False)
+    setship(x=gx, y=gy-60, vx=vx, vy=vy, angle=angle, fuel=fuel, resting=False, landed=False, hull=100, hitCooldown=0)
     contacts = 0; prev_vy = vy; rest_frames = 0; hist = []
     for _ in range(int(secs*30)):
         step(1); st = ship_state(); hist.append(st)
@@ -505,16 +507,30 @@ def phys_land(label, angle, vy, vx=0.0, fuel=100, x=None, secs=8.0, takeoff=True
         hold('up', True); step(60); hold('up', False)
         st2 = ship_state(); rec["lift"] = round(gy0 - st2['y'], 1)
     PHYS.append(rec); return rec
-PHYS_PROBLEMS = []
+PHYS_PROBLEMS = []; PHYS_EXTRA = []; CINE = []
 LEAKS = {}
 def run_physics():
-    global badx, PHYS_PROBLEMS, LEAKS
+    global badx, PHYS_PROBLEMS, LEAKS, PHYS_EXTRA
     lua.execute('require("src.game")._begin(1)'); lua.execute('require("src.game")._forcegame()')
     for lab, ang, vy in (("plat", 0.0, 20), ("incline 0.25", 0.25, 20), ("incline 0.45", 0.45, 20), ("incline 0.6", 0.6, 20), ("incline 0.9", 0.9, 25), ("rapide", 0.0, 55), ("tres rapide", 0.0, 80)):
         r = phys_land(lab, ang, vy)
         print("PHYS", r)
     for lab, kw in (("fuel 0", dict(angle=0.0, vy=20, fuel=0, takeoff=False)), ("vx 60", dict(angle=0.0, vy=20, vx=60)), ("vx 90 incline", dict(angle=0.4, vy=30, vx=90)), ("renverse", dict(angle=2.5, vy=20))):
         r = phys_land(lab, **kw); print("PHYS", r)
+    # degats croissants avec l'angle et la vitesse ; atterrissage exigeant un angle tres faible
+    dm = {r["label"]: 100 - r["hull"] for r in PHYS}
+    for a, b in (("plat", "incline 0.45"), ("incline 0.25", "incline 0.6"), ("plat", "rapide"), ("rapide", "tres rapide")):
+        if not dm[b] > dm[a]: PHYS_EXTRA.append(f"degats {b} ({dm[b]}) <= {a} ({dm[a]})")
+    print("PHYS degats:", dm)
+    pm = 1
+    for ang, want in ((0.05, True), (0.2, False)):
+        lua.execute(f'require("src.game")._begin({pm})'); lua.execute('require("src.game")._forcegame()')
+        d0 = dbg(); px = d0['padx']; gy = d0['pady']
+        setship(x=px, y=gy-16, vx=0, vy=10, angle=ang, fuel=100, resting=False, landed=False, hull=100, hitCooldown=0, cargo=1)
+        for _ in range(60): step(1)
+        d1 = dbg(); got = bool(d1['landed']) or d1['padIndex'] != d0['padIndex']
+        if got != want: PHYS_EXTRA.append(f"pose sur la plateforme a {ang} rad (M{pm}) : validee={got}, attendu {want}")
+        print("PHYS pad", ang, "valide", got)
     # balayage : poses a de nombreux x (bords de plateforme, pentes), sur les 18 missions ; re-decollage obligatoire
     badx = []; nsweep = 0
     for mi in range(1, nm+1):
@@ -547,7 +563,7 @@ def run_physics():
     leak_probe("station (explore) inactive", lambda: None)
     lua.execute('require("src.game")._title()')
     leak_probe("ecran titre inactif", lambda: None)
-    PHYS_PROBLEMS = []
+    PHYS_PROBLEMS = list(PHYS_EXTRA)
     for r in [x for x in PHYS if not x['label'].startswith('M')]:
         if r['label'] in ('incline 0.6', 'incline 0.9', 'renverse') and r['contacts'] > 0: PHYS_PROBLEMS.append(f"rebonds repetes sur pose inclinee: {r}")
         if r['label'] == 'fuel 0' and not r['failed']: PHYS_PROBLEMS.append(f"pose sans carburant : blocage non detecte: {r}")
@@ -583,6 +599,11 @@ for mi in range(1, nm+1):
     seen=0; g=0
     while dbg()['state'] in ('debrief','card','cinematic') and g<100:
         if dbg()['state']=='card': seen+=1
+        if dbg()['state']=='cinematic':
+            CINE.append(mi)
+            key('space'); step(1)                    # trop tot : ignore (invite pas encore affichee)
+            if dbg()['state'] != 'cinematic': FAILED.append(f"cinematique M{mi} sautee avant l'invite")
+            step(160)                                # 5,3 s : l'invite apparait
         key('space'); step(1); g+=1
     d=dbg()
     # M03 ouvre une sequence d'exploration avant M04 : reparer les 3 relais puis lire le terminal.
@@ -690,6 +711,7 @@ if mode != "noaudio":
 else:
     print("images: none (fallback banner path) | draws:", img['drawn'])
 for k in v: problems.append("violation: "+str(k))
+if CINE != [6, 12, 18]: FAILED.append(f"cinematiques attendues apres M6, M12, M18 : {CINE}")
 if FAILED: problems.append("missions not completed: "+str(FAILED))
 for x in EXTRA: problems.append("extra: "+x)
 for x in PHYS_PROBLEMS: problems.append("physique: "+x)

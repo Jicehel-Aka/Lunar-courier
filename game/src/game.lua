@@ -25,8 +25,16 @@ local THRUST     = 105     -- poussee (px/s2)
 local TURN       = 2.25    -- rotation (rad/s)
 local SAFE_VY    = 38      -- vitesse verticale max pour se poser
 local SAFE_VX    = 40      -- vitesse horizontale max pour se poser
-local SAFE_ANGLE = 0.30    -- inclinaison max pour se poser (rad)
-local CRASH_VY   = 75      -- au-dessus : rebond qui abime la coque
+local SAFE_ANGLE = 0.12    -- inclinaison max pour se poser (rad, ~7 deg)
+-- Degats d un choc avec le sol : croissent avec la vitesse verticale (au-dela de 30), la vitesse horizontale
+-- (au-dela de 40) et l inclinaison (au-dela de SAFE_ANGLE, d autant plus que le choc est rapide).
+-- Un contact doux (vitesse < 30, droit) ne coute rien ; un impact a 100 px/s de travers detruit presque tout.
+local function impactDamage(vx, vy, angle)
+    local v = math.abs(vy)
+    local d = math.max(0, v - 30) * 0.45 + math.max(0, math.abs(vx) - 40) * 0.2
+    d = d + math.max(0, math.abs(angle) - 0.12) * 40 * math.min(2, math.max(0.5, v / 60))
+    return math.min(100, math.floor(d + 0.5))
+end
 local FEET       = 12      -- distance centre -> pieds du vaisseau
 local PAD_HALF   = 39      -- demi-largeur d'une zone d'atterrissage
 local TOP_LIMIT  = 70      -- plafond (sous le HUD)
@@ -652,6 +660,16 @@ function Game.update(dt)
                 note("nocargo", I.t("no_cargo"), 2.5, 4)
             end
         elseif math.abs(ship.vy) < 60 then
+            if math.abs(impact) > 14 and ship.hitCooldown <= 0 then
+                local dmg = impactDamage(ship.vx, impact, ship.angle)
+                if dmg >= 2 then
+                    hull = math.max(0, hull - dmg)
+                    ship.hitCooldown = 0.5; shakeT = 0.25
+                    addParticles(ship.x, ship.y + FEET, 6, "spark")
+                    Audio.play("hit")
+                    if hull <= 0 then failMission(I.t("hull_broken")) end
+                end
+            end
             -- Contact doux : le vaisseau se pose toujours (plus de micro-rebonds repetes sur une pente ou
             -- incline) ; s'il est trop penche (> 0,5 rad) il se redresse de lui-meme sur ses jambes.
             ship.vy = 0
@@ -669,9 +687,14 @@ function Game.update(dt)
                 note("tilt", I.t("tilt"), 2, 5)
             end
         else
-            if math.abs(impact) > CRASH_VY then
-                hull = math.max(0, hull - 12)
-                if hull <= 0 then failMission(I.t("hull_broken")) end
+            if ship.hitCooldown <= 0 then
+                local dmg = impactDamage(ship.vx, impact, ship.angle)
+                if dmg >= 2 then
+                    hull = math.max(0, hull - dmg)
+                    ship.hitCooldown = 0.5; shakeT = 0.3
+                    addParticles(ship.x, ship.y + FEET, 8, "spark")
+                    if hull <= 0 then failMission(I.t("hull_broken")) end
+                end
             end
             ship.vy = -math.min(math.abs(ship.vy)*0.38 + 10, 65)
             ship.vx = ship.vx * 0.62
@@ -1948,7 +1971,8 @@ function Game.keypressed(key, scancode, isrepeat)
     elseif state == "instructions" then
         if confirm(key) then Audio.play("menu"); beginMission(1) end
     elseif state == "cinematic" then
-        if confirm(key) and not isrepeat then
+        -- passer seulement quand l invite est affichee (evite de sauter la scene d un appui de trop)
+        if confirm(key) and not isrepeat and Cinematic.s.t >= 5 then
             local nextI = Cinematic.finish()
             if nextI > #Data.missions then backToTitle() else beginMission(nextI) end
         end
