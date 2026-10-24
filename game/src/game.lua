@@ -1288,12 +1288,12 @@ local function drawTitle()
             color(255,190,79); rect(170, y+10, 18, 2); rect(452, y+10, 18, 2)
             centered("> "..it.label.." <", y, fonts.f24, {255,190,83})
         else centered(it.label, y, fonts.f24, {82,229,218}) end
-        y = y + 26
+        y = y + (I.aka and 30 or 26)
     end
-    centered(I.t("hint1"), 390, fonts.f24, {158,184,202})
-    centered(I.t("hint2"), I.aka and 417 or 413, fit(I.t("hint2"), 620, {fonts.f24, fonts.f16}), {158,184,202})
+    centered(I.t("hint1"), I.aka and 388 or 390, fonts.f24, {158,184,202})
+    centered(I.t("hint2"), I.aka and 422 or 413, fit(I.t("hint2"), 620, {fonts.f24, fonts.f16}), {158,184,202})
     if I.aka then
-        centered("D : TEST STATION FANTOME", 462, fonts.f12, {255,190,79})
+        centered("D : TEST STATION FANTOME", 456, fonts.f12, {255,190,79})
     end
 end
 
@@ -1470,7 +1470,7 @@ local function drawCard()
     drawLines(vis, 70, 174, 500, fonts.f16, cols, 20)
     if shown >= #c[2] then
         local prompt = (cardIdx == #list) and I.t(cardLastKey) or I.t("card_next")
-        centered(prompt, 428, fonts.f16, {255,190,81})
+        centered(prompt, 422, fonts.f16, {255,190,81})
     end
     centered(cardIdx.."/"..#list, 454, fonts.f16, {90,110,130})
 end
@@ -2027,8 +2027,15 @@ end
 
 -- Mesure de performance (menu PERF) : enveloppes minces, aucun cout quand PERF est coupe.
 local rawUpdate, rawDraw = Game.update, Game.draw
-function Game.update(dt) Perf.updBegin(); spriteStep(3); rawUpdate(dt); Perf.updEnd(dt) end
+-- Chargement des sprites : on charge 3 images par tour et on n affiche ni ne met a jour rien tant que ce
+-- n est pas fini (sinon le jeu saccade). Le chien de garde est relance a chaque image presentee.
+local function spritesPending() return spriteQueue[spriteQi] ~= nil end
+function Game.update(dt)
+    if spritesPending() then spriteStep(3); return end
+    Perf.updBegin(); rawUpdate(dt); Perf.updEnd(dt)
+end
 function Game.draw()
+    if spritesPending() then return end
     Perf.drawBegin(); rawDraw()
     if Perf.on then Perf.drawEnd(state == "explore" and (explore.site == "comms" and "comms" or "station") or state, fonts.f16.obj) end
 end
