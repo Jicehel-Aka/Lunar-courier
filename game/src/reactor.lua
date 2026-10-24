@@ -17,7 +17,7 @@ end
 local function say(s,d) st.message,st.msgT=s,d or 3 end
 function R.keypressed(key,isrepeat)
     if not st then R.reset() end
-    if st.solved then return "done" end
+    if st.solved then return nil end
     if st.console then
         if key=="left" or key=="q" then st.selected=st.selected-1; if st.selected<1 then st.selected=3 end
         elseif key=="right" or key=="d" then st.selected=st.selected+1; if st.selected>3 then st.selected=1 end
