@@ -8,6 +8,7 @@ local Save  = require("src.save")
 local Art   = require("src.art")
 local I     = require("src.i18n")
 local Station = require("src.station")
+local Signal  = require("src.signal")
 local Game = {}
 
 local W, H = 640, 480
@@ -281,6 +282,8 @@ local function startMission(i)
     skyOverride = nil
     missionIndex = i
     resetMission()
+    explore.fuelMul, explore.nextMul = explore.nextMul or 1, 1
+    if explore.fuelMul < 1 then setMessage("LUNA : Signal accorde. Consommation -"..math.floor((1-explore.fuelMul)*100+0.5).." %.", 4) end
     state = "game"
 end
 
@@ -408,6 +411,66 @@ end
 -- ---------------------------------------------------------------------------
 -- Mise a jour
 -- ---------------------------------------------------------------------------
+local function updateExplore(dt)
+    explore.t = explore.t + dt
+    local keys = I.moveKeys()
+    local oldX = explore.x
+    local moving = false
+    local frozen = Station.s.mode ~= "walk"
+    if not frozen and anyDown(keys.left) then
+        explore.x = explore.x - 145*dt
+        explore.facing = -1
+        moving = true
+    end
+    if not frozen and anyDown(keys.right) then
+        explore.x = explore.x + 145*dt
+        explore.facing = 1
+        moving = true
+    end
+    explore.x = clamp(explore.x, Station.minX(), Station.maxX())
+    explore.vx = dt > 0 and (explore.x-oldX)/dt or 0
+    if moving and explore.y == 0 and (explore.vy or 0) == 0 then
+        explore.walkT = (explore.walkT or 0) + dt * (math.abs(explore.vx) > 1 and 10 or 0)
+    else
+        -- L'animation de marche s'arrete en douceur quand le personnage s'immobilise.
+        explore.walkT = (explore.walkT or 0) * math.max(0, 1-dt*8)
+    end
+    explore.interactT = math.max(0, (explore.interactT or 0)-dt)
+    if explore.y < 0 or (explore.vy or 0) ~= 0 then
+        explore.grounded = false
+        explore.vy = (explore.vy or 0) + 470*dt
+        explore.y = explore.y + explore.vy*dt
+        if explore.y >= 0 then
+            explore.y, explore.vy, explore.grounded = 0, 0, true
+            explore.landT = 0.18
+        end
+    else
+        explore.grounded = true
+    end
+    explore.landT = math.max(0, (explore.landT or 0)-dt)
+    Station.update(dt, explore)
+    local sm, sd = Station.takeMsg()
+    if sm then toast, toastT = sm, sd end
+    explore.repairs, explore.repaired, explore.logRead = Station.s.repairs, Station.s.solved, Station.s.logRead
+    Audio.thrust(false)
+end
+
+local beginMission
+local function updateSignal(dt)
+    local k = I.moveKeys()
+    local kf = (anyDown(k.right) and 1 or 0) - (anyDown(k.left) and 1 or 0)
+    local kp = (anyDown(k.up) and 1 or 0) - (anyDown({"down","s"}) and 1 or 0)
+    local wasLocked = Signal.s.locked
+    if Signal.update(dt, kf, kp) then
+        explore.nextMul = Signal.bonus()
+        Signal.s.active = false
+        beginMission(explore.nextI)
+    elseif Signal.s.locked and not wasLocked then
+        Audio.play("pickup")
+    end
+    Audio.thrust(false)
+end
+
 function Game.update(dt)
     dt = math.min(dt, 1/30)
     time = time + dt
@@ -429,50 +492,8 @@ function Game.update(dt)
         p.life = p.life - dt
         if p.life <= 0 then table.remove(particles, i) end
     end
-    if state == "explore" then
-        explore.t = explore.t + dt
-        local keys = I.moveKeys()
-        local oldX = explore.x
-        local moving = false
-        local frozen = Station.s.mode ~= "walk"
-        if not frozen and anyDown(keys.left) then
-            explore.x = explore.x - 145*dt
-            explore.facing = -1
-            moving = true
-        end
-        if not frozen and anyDown(keys.right) then
-            explore.x = explore.x + 145*dt
-            explore.facing = 1
-            moving = true
-        end
-        explore.x = clamp(explore.x, Station.minX(), Station.maxX())
-        explore.vx = dt > 0 and (explore.x-oldX)/dt or 0
-        if moving and explore.y == 0 and (explore.vy or 0) == 0 then
-            explore.walkT = (explore.walkT or 0) + dt * (math.abs(explore.vx) > 1 and 10 or 0)
-        else
-            -- L'animation de marche s'arrete en douceur quand le personnage s'immobilise.
-            explore.walkT = (explore.walkT or 0) * math.max(0, 1-dt*8)
-        end
-        explore.interactT = math.max(0, (explore.interactT or 0)-dt)
-        if explore.y < 0 or (explore.vy or 0) ~= 0 then
-            explore.grounded = false
-            explore.vy = (explore.vy or 0) + 470*dt
-            explore.y = explore.y + explore.vy*dt
-            if explore.y >= 0 then
-                explore.y, explore.vy, explore.grounded = 0, 0, true
-                explore.landT = 0.18
-            end
-        else
-            explore.grounded = true
-        end
-        explore.landT = math.max(0, (explore.landT or 0)-dt)
-        Station.update(dt, explore)
-        local sm, sd = Station.takeMsg()
-        if sm then toast, toastT = sm, sd end
-        explore.repairs, explore.repaired, explore.logRead = Station.s.repairs, Station.s.solved, Station.s.logRead
-        Audio.thrust(false)
-        return
-    end
+    if state == "explore" then updateExplore(dt); return end
+    if state == "signal" then updateSignal(dt); return end
     if state ~= "game" or paused or ship.landed or failed then Audio.thrust(false); return end
 
     local m = mission()
@@ -498,7 +519,7 @@ function Game.update(dt)
     if thrusting then
         ship.vx = ship.vx + math.sin(ship.angle)*THRUST*dt
         ship.vy = ship.vy - math.cos(ship.angle)*THRUST*dt
-        fuel = math.max(0, fuel - m.fuelUse*dt)
+        fuel = math.max(0, fuel - m.fuelUse*(explore.fuelMul or 1)*dt)
         ship.resting = false
         if math.random() < 0.85 then
             addParticles(ship.x - math.sin(ship.angle)*17, ship.y + math.cos(ship.angle)*17, 1, "flame")
@@ -1648,6 +1669,8 @@ function Game.draw()
         end
         Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj})
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
+    elseif state == "signal" then
+        Signal.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, f24=fonts.f24.obj})
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
@@ -1684,7 +1707,7 @@ local function showCards(mi, kind, done, sky, lastKey)
     state = "card"
 end
 
-local function beginMission(i)
+function beginMission(i)
     local m = Data.missions[i]
     showCards(i, "pre", function() startMission(i) end, m.sky, "card_launch")
 end
@@ -1714,6 +1737,10 @@ local function afterDebrief()
                 Station.reset()
                 loadExplorerSprites()
                 state = "explore"
+            elseif Signal.has(missionIndex) then
+                explore.nextI = nextI
+                Signal.start(missionIndex)
+                state = "signal"
             else
                 beginMission(nextI)
             end

@@ -131,6 +131,8 @@ Game._begin = function(i) beginMission(i) end
 Game._explore = function() require('src.station').reset(); loadExplorerSprites(); explore.x, explore.y, explore.vy, explore.t = 100, 0, 0, 0; explore.repaired, explore.repairs, explore.campaign = false, 0, false; state = 'explore' end
 Game._tp = function(x) explore.x = x end
 Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
+Game._sg = function() local S = require('src.signal').s; return {f=S.f, p=S.p, tf=S.c.tf, tp=S.c.tp, locked=S.locked, match=S.match or 0, mul=explore.nextMul or 1} end
+Game._sgset = function(f,p) local S = require('src.signal').s; S.f, S.p = f, p end
 Game._title = function() state = 'title'; buildMenu() end
 Game._forcegame = function() state = 'game'; paused = false end
 Game._maxg = function(x1,x2)
@@ -321,6 +323,29 @@ def run_station():
     tp(470); key('a'); step(1)
     return ok
 
+def run_signal(mi):
+    """Mini-jeu d'accord du signal : touches reelles, puis alignement sur la cible, verrouillage, vol suivant."""
+    G = 'require("src.game")'
+    def sg():
+        t = lua.eval(G + '._sg()'); return {k: t[k] for k in ('f','p','tf','tp','locked','match','mul')}
+    ok = True
+    s0 = sg(); step(2)
+    hold('right', True); step(15); hold('right', False)
+    s1 = sg()
+    if not s1['f'] > s0['f'] + 0.1: print("SIGNAL FAIL: droite n'augmente pas la frequence", s0, s1); FAILED.append("signal freq"); ok = False
+    hold('up', True); step(10); hold('up', False)
+    s2 = sg()
+    if abs(s2['p'] - s1['p']) < 0.05: print("SIGNAL FAIL: haut ne change pas la phase", s1, s2); FAILED.append("signal phase"); ok = False
+    step(60)
+    if sg()['locked']: print("SIGNAL FAIL: verrouille sans accord"); FAILED.append("signal lock early"); ok = False
+    lua.execute(G + '._sgset(%f,%f)' % (s2['tf'], s2['tp']))
+    step(50)
+    if not sg()['locked'] or sg()['match'] < 0.9: print("SIGNAL FAIL: pas de verrouillage a l'accord", sg()); FAILED.append("signal lock"); ok = False
+    step(80)
+    d = dbg()
+    if d['state'] != 'card': print("SIGNAL FAIL: pas de vol apres l'accord", d['state']); FAILED.append("signal exit"); ok = False
+    return ok
+
 results={}
 advance_to_game()
 
@@ -437,6 +462,11 @@ for mi in range(1, nm+1):
         if not ok_st or d['state'] != 'card' or d['cardIdx'] != 1:
             print("station interlude did not launch M04:", d['state'], d['mi'], d['cardIdx'])
             FAILED.append("station interlude")
+    if mi in (5, 9):
+        if d['state'] != 'signal':
+            print("expected signal mini-game after M%d, got" % mi, d['state']); FAILED.append("signal missing M%d" % mi)
+        else:
+            run_signal(mi); d = dbg()
     # entering next mission: pre cards counted inside 'seen'
     print(f"M{mi:02d}: attempts={results[mi][0]} fuel={results[mi][1]} hull={results[mi][2]} t={results[mi][3]}s | debrief={st_deb} cards_shown={seen} -> state={d['state']} mi={d['mi']}")
     if d['state']=='card':
