@@ -581,7 +581,7 @@ for mi in range(1, nm+1):
     key('space'); step(1)            # landed -> debrief
     st_deb = dbg()['state']
     seen=0; g=0
-    while dbg()['state'] in ('debrief','card') and g<80:
+    while dbg()['state'] in ('debrief','card','cinematic') and g<100:
         if dbg()['state']=='card': seen+=1
         key('space'); step(1); g+=1
     d=dbg()
@@ -655,7 +655,7 @@ for aka, kb in ((False,"azerty"),(False,"qwerty"),(True,"aka")):
     for nav in (1, 6 if aka else 7):
         e = run('local G=require("src.game"); G.keypressed("escape","escape",false); G.keyreleased("escape")' + ' G.keypressed("down");'*nav + ' G.keypressed("space"); love.draw(); G.keypressed("space"); G.keypressed("escape","escape",false); G.keyreleased("escape")')
         check(e is None, f"menu page {nav} {lang}: {e}")
-    for st in ("title","instructions","card","game","debrief"):
+    for st in ("title","instructions","card","game","debrief","cinematic"):
         e = run('love.draw()'); check(e is None, f"draw {st}: {e}")
 # captures : F12, appui long, menu
 n0 = int(lua.eval('#SHOTS'))
