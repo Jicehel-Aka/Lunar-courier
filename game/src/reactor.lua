@@ -67,14 +67,23 @@ function R.draw(ui)
     local obj=not st.inserted and "OBJECTIF : INSERER LE MODULE" or (st.solved and "PHASE STABLE - REACTEUR EN LIGNE" or (st.console and "CONSOLE // SYNCHRONISATION" or "OBJECTIF : REGLER LA PHASE DU REACTEUR"))
     ui.centered(obj,55,ui.f16,{255,190,79})
     if st.console then
-        ui.panel(105,115,430,214); ui.centered("CALIBRAGE DES TROIS BOBINES",128,ui.f24,{133,239,231})
-        for i=1,3 do local y=174+(i-1)*43; color(i==st.selected and 255 or 164,i==st.selected and 190 or 205,i==st.selected and 79 or 219); g.setFont(ui.f16.obj); g.printf(NAMES[i],132,y,120,"left")
+        ui.panel(105,115,430,250); ui.centered("CALIBRAGE DES 3 BOBINES",130,ui.f16,{133,239,231})
+        for i=1,3 do local y=174+(i-1)*43; color(i==st.selected and 255 or 164,i==st.selected and 190 or 205,i==st.selected and 79 or 219); g.setFont(ui.f16.obj); g.printf(NAMES[i],132,y,150,"left")
             for p=0,3 do color(p==st.phase[i] and 73 or 29,p==st.phase[i] and 225 or 56,p==st.phase[i] and 216 or 76); rect(292+p*35,y-2,25,22); if p==st.phase[i] then color(255,255,230); rect(300+p*35,y+5,9,7) end end
             color(st.phase[i]==TARGET[i] and 96 or 110,st.phase[i]==TARGET[i] and 230 or 130,st.phase[i]==TARGET[i] and 177 or 145); g.setFont(ui.f16.obj); g.printf(st.phase[i]==TARGET[i] and "OK" or "?",448,y,52,"left")
         end
-        color(207,222,230); g.setFont(ui.f16.obj); g.printf("Cible : A=1  B=3  C=2",132,303,370,"left"); color(255,190,79); g.printf("Q/D : choisir  Z/S : regler  E : valider",132,328,390,"left")
+        color(207,222,230); g.setFont(ui.f16.obj); g.printf("Cible : A=1  B=3  C=2",132,303,370,"left"); color(255,190,79); g.printf("Q/D choisir  Z/S regler",132,326,380,"left"); g.printf("E : valider",132,346,380,"left")
     end
-    if st.msgT>0 and st.message then ui.panel(54,390,532,52); ui.centered(st.message,404,ui.f16,{222,235,240}) end
-    if not ui.aka then g.setFont(ui.f16.obj); color(151,177,190); g.printf("AZERTY : Q/D ou fleches - E : agir - ECHAP : fermer console",24,454,592,"center") end
+    if st.msgT>0 and st.message then
+        local lines,cur={},""
+        for word in st.message:gmatch("%S+") do
+            if #cur>0 and #cur+1+#word>31 then lines[#lines+1]=cur; cur=word else cur=(#cur>0) and (cur.." "..word) or word end
+        end
+        if #cur>0 then lines[#lines+1]=cur end
+        local n=math.min(3,#lines)
+        ui.panel(54,376,532,14+n*20)
+        for i=1,n do ui.centered(lines[i],386+(i-1)*20,ui.f16,{222,235,240}) end
+    end
+    if not ui.aka then ui.centered("AZERTY : Q/D ou fleches - E : agir - ECHAP : fermer",463,ui.f8,{151,177,190}) end
 end
 return R

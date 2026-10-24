@@ -362,8 +362,28 @@ def run_disembark(mi, natural):
         if n >= 900 or n < 150: print("DISEMBARK FAIL: duree anormale", n); FAILED.append("disembark length M%d" % mi); ok = False
     else:
         key('a'); step(2)
-    want = 'explore' if mi == 3 else 'signal'
+    want = {3: 'explore', 5: 'reactor'}.get(mi, 'signal')
     if dbg()['state'] != want: print("DISEMBARK FAIL: attendu", want, "obtenu", dbg()['state']); FAILED.append("disembark exit M%d" % mi); ok = False
+    return ok
+
+def run_reactor():
+    """M5 : inserer le module, regler les trois bobines (A=1, B=3, C=2), demarrer le reacteur, puis M6."""
+    ok = True
+    def need(cond, label):
+        nonlocal ok
+        if not cond: print("REACTOR FAIL:", label, dbg()['state']); FAILED.append("reactor: " + label); ok = False
+    for _ in range(6): key('right'); step(1)
+    key('e'); step(1)                                   # module insere
+    for _ in range(7): key('right'); step(1)
+    key('e'); step(1)                                   # console
+    key('e'); step(1)                                   # phases fausses : refus
+    need(dbg()['state'] == 'reactor', "refus si phases fausses")
+    for target in (1, 3, 2):
+        for _ in range(target): key('up'); step(1)
+        key('right'); step(1)
+    key('e'); step(1)
+    step(120)
+    need(dbg()['state'] == 'card', "enchainement vers M6 apres le reacteur")
     return ok
 
 results={}
@@ -487,7 +507,9 @@ for mi in range(1, nm+1):
         if not ok_st or d['state'] != 'card' or d['cardIdx'] != 1:
             print("station interlude did not launch M04:", d['state'], d['mi'], d['cardIdx'])
             FAILED.append("station interlude")
-    if mi in (5, 9):
+    if mi == 5 and d['state'] == 'reactor':
+        run_reactor(); d = dbg()
+    elif mi in (5, 9):
         if d['state'] != 'signal':
             print("expected signal mini-game after M%d, got" % mi, d['state']); FAILED.append("signal missing M%d" % mi)
         else:
