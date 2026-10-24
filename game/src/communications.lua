@@ -2,7 +2,12 @@
 -- Trois salles connectees, interactions contextuelles et retour explicite au mini-jeu.
 local C = {}
 local st
-local NAMES = {"SAS DU RELAIS", "COULOIR TECHNIQUE", "SALLE DE RECEPTION"}
+local I = require("src.i18n")
+local TX = require("src.communications_text")
+local function T(k)
+  local t = TX[I.lang] or TX.fr
+  return t[k] or TX.fr[k] or ""
+end
 local function say(s, d) st.msg, st.msgD = s, d or 4 end
 function C.reset()
   st = {room=1, doors={false,false}, t=0, mode="walk", visited={}, msg=nil, msgD=0,
@@ -14,12 +19,7 @@ function C.enter(r)
   st.room=r
   if not st.visited[r] then
     st.visited[r]=true
-    local intro={
-      "LUNA : Relais de communications. Le sas est hors tension. Examinez le panneau ambre.",
-      "LUNA : Les conduites alimentent le relais. Inspectez les connecteurs avant de continuer.",
-      "LUNA : Le recepteur est intact, mais son alimentation est instable. Reparez le circuit puis accordez le signal."
-    }
-    say(intro[r],5)
+    say(T("intro"..r),5)
   end
 end
 function C.takeMsg()
@@ -44,33 +44,35 @@ function C.update(dt, ex)
     st.mode,st.tt,st.switched,st.to,st.dir="transit",0,false,st.room-1,-1
   end
 end
+function C.title() return T("header") end
+function C.actionHint() return I.aka and T("actionsAKA") or T("actions") end
 function C.objective()
-  if st.room==1 then return st.doors[1] and "SAS ALIMENTE - AVANCEZ" or "RETABLIR L'ALIMENTATION"
-  elseif st.room==2 then return st.repaired and "CIRCUIT STABLE - AVANCEZ" or "INSPECTER LES CONNECTEURS"
-  else return st.aligned and "SIGNAL PRET" or "REPARER LE RECEPTEUR" end
+  if st.room==1 then return st.doors[1] and T("obj1done") or T("obj1")
+  elseif st.room==2 then return st.repaired and T("obj2done") or T("obj2")
+  else return st.aligned and T("obj3done") or T("obj3") end
 end
 function C.hint()
-  if st.room==1 then return st.doors[1] and "La porte est ouverte. Avancez a droite." or "Approchez du panneau ambre et appuyez sur E."
-  elseif st.room==2 then return st.repaired and "Le circuit est stable. Passez a droite." or "Examinez le boitier de jonction au centre."
-  else return st.repaired and "Le recepteur est alimente. Lancez l'accord du signal." or "Reparez le recepteur avant de le synchroniser." end
+  if st.room==1 then return st.doors[1] and T("hint1done") or (I.aka and T("hint1aka") or T("hint1"))
+  elseif st.room==2 then return st.repaired and T("hint2done") or T("hint2")
+  else return st.repaired and T("hint3done") or T("hint3") end
 end
 function C.interact(x)
   if st.mode~="walk" then return nil end
   if st.room==1 then
-    if math.abs(x-470)>42 then return "LUNA : Panneau de commande pres du sas.",nil end
-    if not st.checked then st.checked=true; return "Panneau ouvert. Le fusible est intact, mais le relais de securite est coupe.", "ok" end
-    if not st.doors[1] then st.doors[1]=true; return "Relais de securite retabli. Le sas s'ouvre.", "ok" end
-    return "Sas deja alimente. Le relais principal se trouve au fond.",nil
+    if math.abs(x-470)>42 then return T("panelfar"),nil end
+    if not st.checked then st.checked=true; return T("panelcheck"), "ok" end
+    if not st.doors[1] then st.doors[1]=true; return T("panelrepair"), "ok" end
+    return T("paneldone"),nil
   elseif st.room==2 then
-    if math.abs(x-310)>48 then return "LUNA : Boitier de jonction au centre.",nil end
-    if not st.doors[1] then return "Le sas est encore hors tension.",nil end
-    if not st.repaired then st.repaired=true; st.doors[2]=true; return "Connecteurs rebranches. Le relais principal est de nouveau alimente.", "ok" end
-    return "Circuit stable. Le recepteur est accessible.",nil
+    if math.abs(x-310)>48 then return T("boxfar"),nil end
+    if not st.doors[1] then return T("boxlocked"),nil end
+    if not st.repaired then st.repaired=true; st.doors[2]=true; return T("boxrepair"), "ok" end
+    return T("boxdone"),nil
   else
-    if math.abs(x-470)>50 then return "LUNA : Console de reception a droite.",nil end
-    if not st.repaired then return "Alimentation instable. Reparez d'abord le boitier du couloir.",nil end
+    if math.abs(x-470)>50 then return T("receiverfar"),nil end
+    if not st.repaired then return T("receiverlocked"),nil end
     st.aligned=true
-    return "LUNA : Signal pret. Accordez frequence et phase.", "signal"
+    return T("signal"), "signal"
   end
 end
 local function col(r,g,b) love.graphics.setColor(r/255,g/255,b/255) end

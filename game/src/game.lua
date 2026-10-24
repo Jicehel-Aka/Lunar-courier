@@ -1960,9 +1960,10 @@ function Game.keypressed(key, scancode, isrepeat)
             local m, ev
             if explore.site == "comms" then m, ev = Communications.interact(explore.x)
             else m, ev = Station.interact(explore.x) end
-            if m then toast, toastT = m, 5 end
+            if m and ev ~= "signal" then toast, toastT = m, 5 end
             if ev then Audio.play("menu") end
             if ev == "signal" then
+                toastT = 0
                 unloadExplorerSprites()
                 explore.site = nil
                 Signal.start(9)

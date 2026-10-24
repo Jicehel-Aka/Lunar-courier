@@ -190,7 +190,7 @@ D.art = {
  {pre={"aube","camp","ruines","faisceau","depart"}, post={"ville"}},
  {pre={"soleil"}, post={"radar"}},
  {pre={"mine"}, post={"cratere"}},
- {pre={"radar","regie","grotte"}, post={"terre"}},
+ {pre={"holo","radar","regie","grotte"}, post={"terre"}},
  {pre={"explorateur"}, post={"couchant","holo","camp","orbite"}},
  {pre={"depart"}, post={"tour","holo","faisceau","regie","colonie","orbite"}},
 }
