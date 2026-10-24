@@ -193,23 +193,40 @@ function D.draw(ui)
     g.push()
     g.translate(320 - cx * z, 300 - cy * z)
     g.scale(z, z)
+    -- Fenetre visible (coordonnees monde). Les rectangles sont rognes a cette fenetre : le runtime AKA
+    -- ne rogne pas avant de remplir, un rectangle geant (sol de 12000 x 3000) bloquait la boucle de dessin.
+    local vx0, vx1 = cx - 330 / z, cx + 330 / z
+    local vy0, vy1 = cy - 310 / z, cy + 190 / z
+    local raw = ui.rect
+    local function rc(x, y, w, h)
+        local x1, y1 = x + w, y + h
+        if x < vx0 then x = vx0 end
+        if y < vy0 then y = vy0 end
+        if x1 > vx1 then x1 = vx1 end
+        if y1 > vy1 then y1 = vy1 end
+        if x1 > x and y1 > y then raw(x, y, x1 - x, y1 - y) end
+    end
+    r = rc
+    local wui = setmetatable({rect = rc}, {__index = ui})
     -- sol
     c(30, 52, 70); r(-6000, G, 12000, 3000)
     c(70, 91, 105); r(-6000, G, 12000, 3)
-    c(22, 40, 56); for i = -40, 80 do r(i * 44 + 8, G + 14 + (i % 3) * 10, 18, 3) end
+    c(22, 40, 56)
+    local i0, i1 = math.max(-40, math.floor((vx0 - 8) / 44)), math.min(80, math.ceil((vx1 - 8) / 44))
+    for i = i0, i1 do r(i * 44 + 8, G + 14 + (i % 3) * 10, 18, 3) end
     -- lieu : fond, cosmonaute, puis cadre et masque
     local pair = DRAW[st.site]
     local open = ax and math.max(0, math.min(1, (ax - (dx - 100)) / 70)) or 0
-    pair[1](ui, dx, open)
+    pair[1](wui, dx, open)
     -- vaisseau a l'echelle 6 : de sa taille de vol (x S) ; porte, coursive et echelle
     g.push(); g.translate(0, G); g.scale(S, S); ui.ship(); g.pop()
-    shipHatch(ui, t)
+    shipHatch(wui, t)
     if ax then
         local walking = grp == "walk_right"
         local bob = (grp == "orientation_up") and (math.floor(t * 4) % 2) * 2 or 0
         ui.astro(grp, 1 + math.floor((t - T_EXIT) * 8) % 4, math.floor(ax), math.floor(ay) + bob)
     end
-    pair[2](ui, dx, open)
+    pair[2](wui, dx, open)
     g.pop()
     -- sous-titre de LUNA (ecran)
     ui.panel(22, 16, 596, 84)
