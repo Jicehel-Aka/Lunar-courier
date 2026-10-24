@@ -277,13 +277,16 @@ def run_station():
             print("STATION FAIL:", label, st()); FAILED.append("station: " + label)
         return cond
     ok = True
+    def cross(dir_key):
+        hold(dir_key, True); step(30); hold(dir_key, False); step(30)
     # piece 1 : mur invisible tant que la porte est fermee
     tp(300); hold('right', True); step(60); hold('right', False)
     ok &= check(st()['x'] <= 500.5 and st()['room'] == 1, "porte 1 fermee bloque le passage")
-    key('a'); step(1)                       # pas de console a portee ? x=500 -> console x=470 a 30 px
+    key('a'); step(1)
     ok &= check(st()['d1'], "console du sas ouvre la porte 1")
-    hold('right', True); step(60); hold('right', False)
-    ok &= check(st()['room'] == 2, "passage en piece 2")
+    # on traverse la porte ouverte : la piece suivante commence sur sa porte de gauche
+    hold('right', True); step(24); hold('right', False); step(30)
+    ok &= check(st()['room'] == 2 and st()['x'] < 120, "traverser la porte 1 mene a la porte gauche de la piece 2")
     # piece 2 : relais dans le mauvais ordre puis le bon
     tp(270); key('a'); step(1)
     ok &= check(st()['repairs'] == 0, "relais 2 avant 1 refuse")
@@ -292,12 +295,12 @@ def run_station():
     for x in (190, 270, 350):
         tp(x); key('a'); step(1)
     ok &= check(st()['repairs'] == 3 and st()['d2'], "3 relais ouvrent la porte 2")
-    tp(560); hold('right', True); step(40); hold('right', False)
-    ok &= check(st()['room'] == 3, "passage en piece 3")
-    # retour arriere possible
-    hold('left', True); step(120); hold('left', False)
-    ok &= check(st()['room'] == 2, "retour piece 2")
-    tp(580); hold('right', True); step(30); hold('right', False)
+    tp(540); cross('right')
+    ok &= check(st()['room'] == 3 and st()['x'] < 140, "passage en piece 3 par sa porte de gauche")
+    # retour arriere : la porte de gauche ramene devant la porte de la piece precedente
+    tp(60); hold('left', True); step(8); hold('left', False); step(30)
+    ok &= check(st()['room'] == 2 and st()['x'] > 500, "retour piece 2 devant sa porte de droite")
+    tp(540); cross('right')
     ok &= check(st()['room'] == 3, "retour piece 3")
     # piece 3 : notes puis mini-jeu
     for x in (120, 250):
@@ -313,7 +316,7 @@ def run_station():
     key('down'); step(1); key('a'); step(1)             # eclairage on -> 6
     ok &= check(st()['solved'] and st()['d3'] and st()['mode'] == 'walk', "sas+eclairage+journal resolvent")
     # surcharge refusee
-    tp(560); hold('right', True); step(40); hold('right', False)
+    tp(540); cross('right')
     ok &= check(st()['room'] == 4, "passage en piece 4")
     # piece 4 : sortie verrouillee tant que le journal n'est pas lu
     tp(470); key('a'); step(1)

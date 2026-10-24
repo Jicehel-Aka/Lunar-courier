@@ -19,7 +19,7 @@ local ITEMS = {
     [1] = {{x=150, k="note", id="r1"}, {x=470, k="door"}},
     [2] = {{x=120, k="note", id="r2"}, {x=190, k="relay", id=1}, {x=270, k="relay", id=2}, {x=350, k="relay", id=3}, {x=470, k="door"}},
     [3] = {{x=120, k="note", id="r3a"}, {x=250, k="note", id="r3b"}, {x=470, k="energy"}},
-    [4] = {{x=140, k="note", id="r4"}, {x=300, k="journal"}, {x=470, k="exit"}},
+    [4] = {{x=300, k="journal"}, {x=470, k="exit"}},
 }
 
 -- Textes : au plus ~90 caracteres (console de LUNA : 4 lignes de 24).
@@ -28,7 +28,6 @@ local NOTES = {
     r2  = "NOTICE : redemarrage en 3 temps. Relais 1, puis 2, puis 3, de gauche a droite.",
     r3a = "NOTE DE VARGA : le journal ne se lit pas dans le noir. Il faut de la lumiere.",
     r3b = "NOTE DE VARGA : reserve de 6 unites. Sas 2, balise 1, eclairage 1, journal 3.",
-    r4  = "Une tasse de cafe sur la table. Encore tiede. Personne n'est a bord.",
 }
 local PAGES = {
     "VARGA, JOUR 12 : plus de relais. Je garde la balise allumee, quoi qu'il arrive.",
@@ -90,8 +89,10 @@ local function isSolved()
 end
 
 -- Limites de deplacement de l'explorateur dans la piece courante.
-function S.minX() return st.room == 1 and 42 or 8 end
-function S.maxX() return (st.room < ROOMS and st.door[st.room]) and 636 or 500 end
+-- Les portes sont des passages : on traverse la porte ouverte (centre x=565) pour changer de piece.
+local DOOR_X, ARRIVE_X, FADE = 565, 56, 0.6
+function S.minX() return st.room == 1 and 42 or 36 end
+function S.maxX() return (st.room < ROOMS and st.door[st.room]) and (DOOR_X + 4) or 500 end
 
 function S.update(dt, ex)
     st.t = st.t + dt
@@ -102,11 +103,22 @@ function S.update(dt, ex)
         if a < target then a = math.min(target, a + dt * 1.6) elseif a > target then a = math.max(target, a - dt * 1.6) end
         st.anim[r] = a
     end
+    if st.mode == "transit" and ex then
+        st.tt = st.tt + dt
+        if not st.switched and st.tt >= FADE / 2 then
+            st.switched = true
+            S.enter(st.to)
+            ex.x = st.dir > 0 and ARRIVE_X or DOOR_X - 25
+            ex.facing = st.dir
+        end
+        if st.tt >= FADE then st.mode = "walk" end
+        return
+    end
     if st.mode ~= "walk" or not ex then return end
-    if ex.x <= 10 and st.room > 1 then
-        S.enter(st.room - 1); ex.x = 572
-    elseif ex.x >= 630 and st.room < ROOMS and st.door[st.room] then
-        S.enter(st.room + 1); ex.x = 44
+    if st.room < ROOMS and st.door[st.room] and ex.x >= DOOR_X - 5 then
+        st.mode, st.tt, st.switched, st.to, st.dir = "transit", 0, false, st.room + 1, 1
+    elseif st.room > 1 and ex.x <= 44 then
+        st.mode, st.tt, st.switched, st.to, st.dir = "transit", 0, false, st.room - 1, -1
     end
 end
 
@@ -363,7 +375,7 @@ local function propsRoom4(t)
     window(250, 300)
     -- baies de serveurs
     for i = 0, 2 do
-        local x = 40 + i * 20
+        local x = 112 + i * 20
         col(10, 22, 34); rect(x, 300, 16, 150)
         for j = 0, 6 do
             local on = (math.floor(t * 3 + i * 2 + j) % 3) ~= 0
@@ -372,10 +384,10 @@ local function propsRoom4(t)
         end
     end
     -- table et tasse
-    col(40, 60, 74); rect(105, 400, 70, 6); rect(112, 406, 6, 45); rect(162, 406, 6, 45)
-    raw(240, 240, 235); rect(132, 388, 14, 12)
-    raw(255, 190, 98); rect(146, 391, 4, 6)
-    col(150, 175, 185); rect(134, 382, 2, 5 + math.floor(t * 2) % 2)
+    col(40, 60, 74); rect(180, 400, 70, 6); rect(187, 406, 6, 45); rect(237, 406, 6, 45)
+    raw(240, 240, 235); rect(207, 388, 14, 12)
+    raw(255, 190, 98); rect(221, 391, 4, 6)
+    col(150, 175, 185); rect(209, 382, 2, 5 + math.floor(t * 2) % 2)
     -- terminal central du journal
     col(7, 16, 27); rect(270, 330, 60, 120)
     col(50, 75, 91); rect(270, 330, 60, 4)
@@ -430,7 +442,7 @@ function S.draw(ex)
         consoleAt(470, st.logRead and "open" or "locked", t)
     end
     -- passage ouvert vers la piece precedente
-    if r > 1 then col(14, 30, 44); rect(0, 230, 24, 221); col(50, 75, 91); rect(24, 230, 4, 221) end
+    if r > 1 then doorAt(r, 8, 1, false) end
     ceilingLights(r, t)
     -- repere clignotant sur l'element a portee
     if st.mode == "walk" and ex then
@@ -453,6 +465,10 @@ local function wrapText(text, n)
 end
 
 function S.drawEnergy(ui)
+    if st.mode == "transit" and st.tt > FADE * 0.2 and st.tt < FADE * 0.8 then
+        ui.color(0, 0, 0); ui.rect(0, 0, 640, 480)
+        return
+    end
     if st.mode ~= "energy" then return end
     local g = love.graphics
     ui.panel(60, 96, 520, 346)
