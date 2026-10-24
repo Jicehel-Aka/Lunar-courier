@@ -45,7 +45,7 @@ local function color(r,g,b) love.graphics.setColor(r/255,g/255,b/255) end
 function R.draw(ui, sprites)
     if not st then R.reset() end
     local g=love.graphics
-    color(3,8,20); rect(0,0,640,480); color(10,22,39); rect(0,82,640,280)
+    color(3,8,20); rect(0,0,640,82); rect(0,362,640,118); color(10,22,39); rect(0,82,640,280)
     color(20,39,57); rect(0,95,640,18); rect(0,340,640,20); color(40,63,79); rect(0,111,640,4); rect(0,340,640,4)
     for i=0,9 do local x=i*72; color(25,45,62); rect(x,118,5,220); rect(x+8,128,2,194); color(37,61,76); rect(x+12,152,45,3); rect(x+12,258,45,3); color(9,20,34); rect(x+16,160,36,92) end
     color(29,st.inserted and 211 or 67,st.inserted and 216 or 84); rect(24,142,592,5); rect(24,294,592,5)

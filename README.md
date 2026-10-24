@@ -28,6 +28,8 @@ Apres un echec (coque brisee, carburant epuise), A recommence la mission. La pau
 Menu systeme (tous les ecrans, met le jeu en pause) : Reprendre, Commandes, Langue, Clavier (PC seulement), Musique, Recommencer (en mission), Capture d'ecran (PC), Credits, Retour au titre, Quitter / Retour au lanceur.
 Ecran titre : Continuer, Nouvelle partie, choix du chapitre (progression sauvegardee automatiquement avec la langue et le clavier).
 
+**Mesure de performance** : menu systeme > PERF : OUI affiche en haut a gauche l'ecran courant, les images/s, les ms de dessin/mise a jour et le nombre de formes ; un fichier `perf.txt` (moyenne et maximum par ecran) est ecrit toutes les 10 s et a l'arret, a envoyer pour optimiser. Les tests mesurent aussi le cout de remplissage par ecran et refusent les rectangles de plus de 10 ecrans (crash AKA de M3).
+
 **Captures** : `love.graphics.captureScreenshot` ; sur PC le fichier `lunar_NNNN.png` est ecrit dans le dossier de sauvegarde LOVE (`%APPDATA%\LOVE\lunar-courier` sous Windows). Le runtime AKA-Love n'a pas cette fonction pour l'instant : le jeu affiche alors "capture indisponible" (a ajouter cote akalove pour ecrire sur la carte SD).
 
 ## Finitions

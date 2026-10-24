@@ -213,7 +213,8 @@ function D.draw(ui)
     c(70, 91, 105); r(-6000, G, 12000, 3)
     c(22, 40, 56)
     local i0, i1 = math.max(-40, math.floor((vx0 - 8) / 44)), math.min(80, math.ceil((vx1 - 8) / 44))
-    for i = i0, i1 do r(i * 44 + 8, G + 14 + (i % 3) * 10, 18, 3) end
+    local di = z < 0.4 and 3 or (z < 0.7 and 2 or 1)   -- moins de details quand tout est petit
+    for i = i0 - i0 % di, i1, di do r(i * 44 + 8, G + 14 + (i % 3) * 10, 18, 3) end
     -- lieu : fond, cosmonaute, puis cadre et masque
     local pair = DRAW[st.site]
     local open = ax and math.max(0, math.min(1, (ax - (dx - 100)) / 70)) or 0

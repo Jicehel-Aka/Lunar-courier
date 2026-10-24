@@ -266,21 +266,16 @@ end
 
 local function shell(r, t)
     gfx = love.graphics
-    col(3, 8, 19); rect(0, 0, 640, 480)
-    -- murs et nervures
-    col(18, 32, 48); rect(0, 0, 640, 118); rect(0, 272, 640, 208)
+    -- Chaque zone n'est remplie qu'une fois (le runtime AKA remplit en logiciel : le surdessin coute cher).
+    col(3, 8, 19); rect(0, 118, 640, 150)               -- fond visible entre mur haut et mur bas
+    col(18, 32, 48); rect(0, 0, 640, 118)
     col(32, 52, 69); rect(0, 92, 640, 26); rect(0, 268, 640, 12)
     col(65, 88, 104); rect(0, 94, 640, 3); rect(0, 274, 640, 3)
     for i = 0, 10 do
         local x = i * 64
         col(25, 43, 59); rect(x, 0, 4, 116); rect(x + 5, 8, 2, 83)
-        col(12, 24, 38); rect(x + 4, 279, 56, 128)
-        col(29, 47, 62); rect(x + 8, 283, 48, 118)
-        col(53, 74, 88); rect(x + 8, 283, 48, 3)
-        col(17, 31, 46); rect(x + 13, 294, 38, 96)
     end
     -- plancher
-    col(12, 22, 34); rect(0, 280, 640, 200)
     col(50, 70, 84); rect(0, 280, 640, 5)
     col(22, 39, 53); rect(0, 285, 640, 195)
     for i = 0, 15 do
