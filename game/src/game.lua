@@ -10,6 +10,7 @@ local I     = require("src.i18n")
 local Station = require("src.station")
 local Signal  = require("src.signal")
 local Dis     = require("src.disembark")
+local Reactor = require("src.reactor")
 local Game = {}
 
 local W, H = 640, 480
@@ -499,6 +500,11 @@ function Game.update(dt)
         if p.life <= 0 then table.remove(particles, i) end
     end
     if state == "explore" then updateExplore(dt); return end
+    if state == "reactor" then
+        if Reactor.update(dt) then unloadExplorerSprites(); beginMission(6) end
+        Audio.thrust(false)
+        return
+    end
     if state == "signal" or state == "disembark" then updateInterlude(dt); return end
     if state ~= "game" or paused or ship.landed or failed then Audio.thrust(false); return end
 
@@ -1697,6 +1703,8 @@ function Game.draw()
         end
         Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj})
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
+    elseif state == "reactor" then
+        Reactor.draw({color=color, rect=rect, panel=panel, centered=centered, f16=fonts.f16, f24=fonts.f24, aka=I.aka})
     elseif state == "disembark" then
         drawDisembark()
     elseif state == "signal" then
@@ -1771,6 +1779,9 @@ local function afterDebrief()
                         explore.repaired, explore.repairs, explore.logRead, explore.campaign = false, 0, false, true
                         Station.reset()
                         state = "explore"
+                    elseif from == 5 then
+                        Reactor.reset()
+                        state = "reactor"
                     else
                         unloadExplorerSprites()
                         explore.nextI = nextI
@@ -1907,6 +1918,9 @@ function Game.keypressed(key, scancode, isrepeat)
             Save.save()
             state = "debrief"
         end
+    elseif state == "reactor" then
+        local ev = Reactor.keypressed(key, isrepeat)
+        if ev == "done" then beginMission(6) end
     elseif state == "explore" then
         if Station.s.mode ~= "walk" then
             local _, ev = Station.key(key)
