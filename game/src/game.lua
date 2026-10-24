@@ -12,6 +12,7 @@ local Signal  = require("src.signal")
 local Dis     = require("src.disembark")
 local Reactor = require("src.reactor")
 local Communications = require("src.communications")
+local Cinematic = require("src.cinematic")
 local Perf = require("src.perf")
 local Game = {}
 
@@ -479,6 +480,14 @@ end
 
 local beginMission
 local function updateInterlude(dt)
+    if state == "cinematic" then
+        if Cinematic.update(dt) then
+            local nextI = Cinematic.finish()
+            if nextI > #Data.missions then backToTitle() else beginMission(nextI) end
+        end
+        Audio.thrust(false)
+        return
+    end
     if state == "reactor" then
         if Reactor.update(dt) then unloadExplorerSprites(); beginMission(explore.nextI or 6) end
         Audio.thrust(false)
@@ -525,7 +534,7 @@ function Game.update(dt)
         if p.life <= 0 then table.remove(particles, i) end
     end
     if state == "explore" then updateExplore(dt); return end
-    if state == "signal" or state == "disembark" or state == "reactor" then updateInterlude(dt); return end
+    if state == "signal" or state == "disembark" or state == "reactor" or state == "cinematic" then updateInterlude(dt); return end
     if state ~= "game" or paused or ship.landed or failed then Audio.thrust(false); return end
 
     local m = mission()
@@ -1734,6 +1743,8 @@ function Game.draw()
         drawDisembark()
     elseif state == "signal" then
         Signal.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, f24=fonts.f24.obj})
+    elseif state == "cinematic" then
+        Cinematic.draw({f16=fonts.f16.obj, f24=fonts.f24.obj, f32=fonts.f32.obj}, I.lang, I.t("card_next"))
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
@@ -1789,9 +1800,11 @@ local function afterDebrief()
     local m = mission()
     local nextI = missionIndex + 1
     if nextI > #Data.missions then
-        showCards(missionIndex, "post", backToTitle, m.sky, "card_title")
+        showCards(missionIndex, "post", function() Cinematic.start(3, nextI); state = "cinematic" end, m.sky, "card_title")
     else
         showCards(missionIndex, "post", function()
+            if missionIndex == 6 then Cinematic.start(1, nextI); state = "cinematic"; return end
+            if missionIndex == 12 then Cinematic.start(2, nextI); state = "cinematic"; return end
             local site = Dis.siteFor(missionIndex)
             if site then
                 local from = missionIndex
@@ -1934,6 +1947,11 @@ function Game.keypressed(key, scancode, isrepeat)
         end
     elseif state == "instructions" then
         if confirm(key) then Audio.play("menu"); beginMission(1) end
+    elseif state == "cinematic" then
+        if confirm(key) and not isrepeat then
+            local nextI = Cinematic.finish()
+            if nextI > #Data.missions then backToTitle() else beginMission(nextI) end
+        end
     elseif state == "card" then
         local cur = cardsOf()[cardIdx]
         if confirm(key) and cur and math.floor(cardT * 70) < #cur[2] then
