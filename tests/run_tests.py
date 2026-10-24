@@ -132,6 +132,7 @@ Game._explore = function() require('src.station').reset(); loadExplorerSprites()
 Game._tp = function(x) explore.x = x end
 Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
 Game._sg = function() local S = require('src.signal').s; return {f=S.f, p=S.p, tf=S.c.tf, tp=S.c.tp, locked=S.locked, match=S.match or 0, mul=explore.nextMul or 1} end
+Game._cm = function() local C = require('src.communications').s; return {room=C.room, checked=C.checked, repaired=C.repaired, d1=C.doors[1], d2=C.doors[2], mode=C.mode} end
 Game._sgset = function(f,p) local S = require('src.signal').s; S.f, S.p = f, p end
 Game._dis = function() local D = require('src.disembark').s; return {t=D.t or 0, active=D.active and 1 or 0} end
 Game._title = function() state = 'title'; buildMenu() end
@@ -362,8 +363,39 @@ def run_disembark(mi, natural):
         if n >= 900 or n < 150: print("DISEMBARK FAIL: duree anormale", n); FAILED.append("disembark length M%d" % mi); ok = False
     else:
         key('a'); step(2)
-    want = {3: 'explore', 5: 'reactor'}.get(mi, 'signal')
+    want = {3: 'explore', 5: 'reactor', 9: 'explore'}.get(mi, 'signal')
     if dbg()['state'] != want: print("DISEMBARK FAIL: attendu", want, "obtenu", dbg()['state']); FAILED.append("disembark exit M%d" % mi); ok = False
+    return ok
+
+def run_comms():
+    """M9 : explorer le sas, retablir le relais, reparer les connecteurs puis ouvrir l'accord du signal."""
+    G = 'require("src.game")'
+    def cm():
+        t = lua.eval(G + '._cm()')
+        return {k: t[k] for k in ('room','checked','repaired','d1','d2','mode')}
+    def tp(x): lua.execute(G + '._tp(%d)' % x)
+    ok = True
+    def need(cond, label):
+        nonlocal ok
+        if not cond:
+            print("COMMS FAIL:", label, cm(), dbg()['state'])
+            FAILED.append("communications: " + label)
+            ok = False
+    # Salle 1 : examiner puis remettre le relais de securite sous tension.
+    tp(470); key('e'); step(1)
+    need(cm()['checked'] and dbg()['state']=='explore', "inspection du panneau")
+    key('e'); step(1)
+    need(cm()['d1'], "relais de securite retabli")
+    hold('right', True); step(30); hold('right', False); step(25)
+    need(cm()['room']==2, "passage vers le couloir technique")
+    # Salle 2 : rebrancher le boitier central.
+    tp(310); key('e'); step(1)
+    need(cm()['repaired'] and cm()['d2'], "connecteurs rebranches")
+    hold('right', True); step(30); hold('right', False); step(25)
+    need(cm()['room']==3, "passage vers la salle de reception")
+    # Salle 3 : interaction avec le recepteur ouvre le mini-jeu, sans le court-circuiter.
+    tp(470); key('e'); step(1)
+    need(dbg()['state']=='signal', "le recepteur lance le mini-jeu de signal")
     return ok
 
 def run_reactor():
@@ -507,6 +539,8 @@ for mi in range(1, nm+1):
         if not ok_st or d['state'] != 'card' or d['cardIdx'] != 1:
             print("station interlude did not launch M04:", d['state'], d['mi'], d['cardIdx'])
             FAILED.append("station interlude")
+    if mi == 9 and d['state'] == 'explore':
+        run_comms(); d = dbg()
     if mi == 5 and d['state'] == 'reactor':
         run_reactor(); d = dbg()
     elif mi in (5, 9):
