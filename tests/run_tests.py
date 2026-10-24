@@ -632,7 +632,7 @@ for aka, kb in ((False,"azerty"),(False,"qwerty"),(True,"aka")):
         e = run('local G=require("src.game"); G.keypressed("right"); love.draw()'); check(e is None, f"menu cycle: {e}")
     run('local G=require("src.game"); G.keypressed("escape"); G.keyreleased("escape")')
     # pages Commandes et Credits du menu, pause
-    for nav in (1, 5 if aka else 6):
+    for nav in (1, 6 if aka else 7):
         e = run('local G=require("src.game"); G.keypressed("escape","escape",false); G.keyreleased("escape")' + ' G.keypressed("down");'*nav + ' G.keypressed("space"); love.draw(); G.keypressed("space"); G.keypressed("escape","escape",false); G.keyreleased("escape")')
         check(e is None, f"menu page {nav} {lang}: {e}")
     for st in ("title","instructions","card","game","debrief"):
