@@ -57,20 +57,20 @@ end
 function C.interact(x)
   if st.mode~="walk" then return nil end
   if st.room==1 then
-    if math.abs(x-470)>42 then return "LUNA : Le panneau de commande est pres du sas.",nil end
+    if math.abs(x-470)>42 then return "LUNA : Panneau de commande pres du sas.",nil end
     if not st.checked then st.checked=true; return "Panneau ouvert. Le fusible est intact, mais le relais de securite est coupe.", "ok" end
     if not st.doors[1] then st.doors[1]=true; return "Relais de securite retabli. Le sas s'ouvre.", "ok" end
     return "Sas deja alimente. Le relais principal se trouve au fond.",nil
   elseif st.room==2 then
-    if math.abs(x-310)>48 then return "LUNA : Cherchez le boitier de jonction au centre du couloir.",nil end
+    if math.abs(x-310)>48 then return "LUNA : Boitier de jonction au centre.",nil end
     if not st.doors[1] then return "Le sas est encore hors tension.",nil end
     if not st.repaired then st.repaired=true; st.doors[2]=true; return "Connecteurs rebranches. Le relais principal est de nouveau alimente.", "ok" end
     return "Circuit stable. Le recepteur est accessible.",nil
   else
-    if math.abs(x-470)>50 then return "LUNA : Le recepteur est sur la console a droite.",nil end
+    if math.abs(x-470)>50 then return "LUNA : Console de reception a droite.",nil end
     if not st.repaired then return "Alimentation instable. Reparez d'abord le boitier du couloir.",nil end
     st.aligned=true
-    return "LUNA : Le recepteur est alimente. Il faut maintenant accorder frequence et phase.", "signal"
+    return "LUNA : Signal pret. Accordez frequence et phase.", "signal"
   end
 end
 local function col(r,g,b) love.graphics.setColor(r/255,g/255,b/255) end
