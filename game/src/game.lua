@@ -1669,7 +1669,7 @@ function Game.draw()
         -- HUD diegetique
         panel(22,20,596,64)
         color(79,221,213); rect(36,34,4,34)
-        centered(explore.site == "comms" and ("RELAIS DE COMMUNICATIONS  "..Communications.s.room.."/3") or ("STATION ARGO  "..Station.s.room.."/"..Station.ROOMS), 34, explore.site == "comms" and fonts.f16 or fonts.f24, {135,239,231})
+        centered(explore.site == "comms" and (Communications.title().."  "..Communications.s.room.."/3") or ("STATION ARGO  "..Station.s.room.."/"..Station.ROOMS), 34, explore.site == "comms" and fonts.f16 or fonts.f24, {135,239,231})
         local objective = explore.site == "comms" and Communications.objective() or Station.objective()
         centered(objective, 65, fonts.f16, {214,225,230})
         -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
@@ -1708,7 +1708,7 @@ function Game.draw()
             color(135,239,231); rect(cx+cw-22, cy+ch-34, 8, 3)
         end
         color(255,190,98)
-        love.graphics.printf("E : AGIR  ESPACE : SAUT", cx+14, cy+ch-24, cw-28, "left")
+        love.graphics.printf(explore.site == "comms" and Communications.actionHint() or "E : AGIR  ESPACE : SAUT", cx+14, cy+ch-24, cw-28, "left")
         end
         if explore.site ~= "comms" then Station.drawEnergy({color=color, rect=rect, panel=panel, f16=fonts.f16.obj}) end
         if not I.aka then centered("AZERTY : Q/D ou fleches  -  E : action  -  ECHAP : quitter", 463, fonts.f8, {145,170,184}) end
