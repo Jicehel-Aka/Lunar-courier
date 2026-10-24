@@ -46,7 +46,7 @@ return {
    {"BRIEFING", "LUNA : Le reseau converge vers le Coeur. Le module que vous portez doit y etre livre : son code est le seul qui ouvre le sas.\n\nLUNA : La balise est sur un plateau. Montez, puis posez-vous bien droit."},
   },
   post={
-   {"TRANSMISSION RECUE", "Le module s'emboite parfaitement. Le reacteur reconnait le code du colis : il attendait cette livraison depuis des annees.\n\nLUNA : Etrange. J'ai reconnu la sequence du code avant meme que le sas ne la demande."},
+   {"TRANSMISSION RECUE", "Le sas accepte le module, mais le reacteur reste muet. Les plans indiquent un logement central et une console de commandement.\n\nLUNA : Le code m'est familier. Mais la phase de demarrage... je ne comprends pas pourquoi."},
   },
   radio={}},
 -- M6
