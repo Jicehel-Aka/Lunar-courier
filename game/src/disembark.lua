@@ -76,7 +76,7 @@ local function wrapText(text, n)
 end
 
 -- ---- lieux (coordonnees monde, dx = x de la porte) -------------------------
--- back : fond et interieur (avant le cosmonaute) ; front : cadre et masque (apres)
+-- back : fond, interieur, cadre et battants de la porte (avant le cosmonaute) ; front : seulement le mur qui le masque (apres)
 local function back_argo(ui, dx, open)
     local c, r = ui.color, ui.rect
     c(20, 40, 56); r(dx - 240, 372, 70, 6); r(dx - 210, 378, 4, 42)      -- panneaux solaires
@@ -89,17 +89,19 @@ local function back_argo(ui, dx, open)
     if open > 0 then
         c(60, 120, 130); r(dx - 18 + math.floor(18 * (1 - open)), 340, 36 - math.floor(36 * (1 - open)), WALL_BOTTOM - 340)
     end
-end
-local function front_argo(ui, dx, open)
-    local c, r = ui.color, ui.rect
+    -- cadre et battants : DERRIERE le cosmonaute (seul le mur a droite le masque)
     c(50, 75, 91); r(dx - 26, 332, 52, 4); r(dx - 26, 332, 4, WALL_BOTTOM - 332); r(dx + 22, 332, 4, WALL_BOTTOM - 332)
     local half = math.floor(20 * (1 - open))
     c(32, 58, 75); r(dx - 22, 336, half, WALL_BOTTOM - 336); r(dx + 22 - half, 336, half, WALL_BOTTOM - 336)
     c(255, 161, 55); r(dx - 3, 322, 6, 5)
+    c(10, 20, 30); r(dx - 26, WALL_BOTTOM - 4, 52, 4)
+end
+local function front_argo(ui, dx, open)
+    local c, r = ui.color, ui.rect
     c(18, 32, 48); r(dx + 26, G - 600, 2400, 600 + 18)                   -- le mur descend jusqu'au sol
     c(32, 52, 69); r(dx + 26, G - 600, 2400, 10); r(dx + 26, G - 170, 2400, 6)
     c(80, 222, 212); r(dx + 50, 280, 22, 8)
-    c(10, 20, 30); r(dx - 26, WALL_BOTTOM - 4, 2400, 4)                   -- plinthe
+    c(10, 20, 30); r(dx + 26, WALL_BOTTOM - 4, 2400, 4)                   -- plinthe
 end
 
 local function back_coeur(ui, dx, open)
@@ -114,13 +116,14 @@ local function back_coeur(ui, dx, open)
     if open > 0 then
         c(110, 190, 225); r(dx - 24 + math.floor(24 * (1 - open)), 344, 48 - math.floor(48 * (1 - open)), WALL_BOTTOM - 344)
     end
-end
-local function front_coeur(ui, dx, open)
-    local c, r = ui.color, ui.rect
+    -- cadre et battants : derriere le cosmonaute
     c(60, 100, 130); r(dx - 32, 336, 64, 4); r(dx - 32, 336, 4, WALL_BOTTOM - 336); r(dx + 28, 336, 4, WALL_BOTTOM - 336)
     local half = math.floor(24 * (1 - open))
     c(30, 60, 85); r(dx - 28, 340, half, WALL_BOTTOM - 340); r(dx + 28 - half, 340, half, WALL_BOTTOM - 340)
     c(150, 205, 230); r(dx - 3, 326, 6, 6)
+end
+local function front_coeur(ui, dx, open)
+    local c, r = ui.color, ui.rect
     c(14, 26, 44); r(dx + 32, G - 700, 2400, 700 + 18)
     c(60, 100, 130); r(dx + 32, 232, 2400, 3)
     c(8, 16, 30); r(dx + 32, WALL_BOTTOM - 4, 2400, 4)
@@ -138,12 +141,13 @@ local function back_varga(ui, dx, open)
     c(90, 112, 124); r(dx - 80, 380, 150, 2); r(dx - 68, 352, 126, 2); r(dx - 52, 328, 94, 2)
     c(6, 12, 20); r(dx - 18, 352, 36, WALL_BOTTOM - 352)                   -- entree sombre
     if open > 0 then c(150, 110, 50); r(dx - 14, 356, 28, WALL_BOTTOM - 356) end
-end
-local function front_varga(ui, dx, open)
-    local c, r = ui.color, ui.rect
+    -- linteau et rabat : derriere le cosmonaute
     c(70, 90, 102); r(dx - 18, 348, 36, 4)
     local flap = math.floor((WALL_BOTTOM - 352) * (1 - open))
     c(46, 62, 74); r(dx - 18, 352, 36, flap)
+end
+local function front_varga(ui, dx, open)
+    local c, r = ui.color, ui.rect
     r(dx + 18, 300, 1200, WALL_BOTTOM - 300)
     c(90, 112, 124); r(dx + 18, 300, 1200, 2)
     c(30, 44, 56); r(dx - 78, 394, 26, 26)                                  -- poste radio
