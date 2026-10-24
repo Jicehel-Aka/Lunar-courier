@@ -151,6 +151,7 @@ return {
 -- M16
  {name="SCHATTENSCHLUCHT", objective="Schlucht durchqueren",
   pre={
+   {"NETZ WIEDER AKTIV", "Die Leuchtkaefer synchronisierten die Baken. Relais Argo sendet endlich einen Impuls zur Erde. Ein Sendefenster ist offen.\n\nLUNA : Das Netz ist wieder aktiv. Jemand antwortet."},
    {"ZENTRUM LAGRANGE", "KONTROLLE : ...hier Zentrum Lagrange, bitte melden... Pilot, wir empfangen deine Baken seit heute Morgen. Wir hielten den Mond fuer verloren. Wer bist du?\n\nLUNA : Hier der Courier, Lieferschiff des Mondes. Wir zuenden die Strasse."},
    {"ZENTRUM LAGRANGE", "KONTROLLE : Hier Theo Marchand, Fluglotse. Deine Baken blinken seit elf Jahren im Code. Ein Wort, immer wieder. Wir brauchten lange, es zu lesen.\n\nKONTROLLE : LEBEND. Es hiess: LEBEND."},
    {"BRIEFING", "LUNA : Schattenschlucht. Die Strahlen prallen von den Waenden ab: drei Blitze, drei Rhythmen.\n\nLUNA : Schluepfe zwischen den Blitzen durch, Pilot. Eine Beruehrung kostet Huelle, nicht die Ruhe."},
