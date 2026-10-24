@@ -1,7 +1,7 @@
 -- Compteur de performance (menu : PERF). Mesure par ecran : images/s, temps de mise a jour et de dessin,
 -- nombre de formes dessinees. Ecrit "perf.txt" (carte SD sur AKA) toutes les 10 s et a l'arret.
 -- Tout est protege par pcall : sans love.timer, seules les formes et la cadence (dt) sont mesurees.
-local P = {on = false}
+local P = {on = false, noraster = false}
 local NAMES = {"rectangle", "polygon", "circle", "line", "print", "printf", "draw"}
 local orig, shapes, stats, order = {}, 0, {}, {}
 local tU, tD, wrote = 0, 0, 0
@@ -17,7 +17,7 @@ local function wrap()
         local f = love.graphics[n]
         if f and not orig[n] then
             orig[n] = f
-            love.graphics[n] = function(...) shapes = shapes + 1; return f(...) end
+            love.graphics[n] = function(...) shapes = shapes + 1; if P.noraster then return end; return f(...) end
         end
     end
 end
@@ -49,6 +49,15 @@ function P.set(on)
     if on then wrap(); stats, order, wrote = {}, {}, 0
     else unwrap(); write() end
 end
+
+-- Cycle : arret -> mesure -> mesure SANS dessin reel (formes comptees mais non tracees) -> arret.
+-- Le temps "dessin" du mode sans dessin = cout du script Lua seul ; la difference = cout du trace.
+function P.cycle()
+    if not P.on then P.noraster = false; P.set(true)
+    elseif not P.noraster then P.noraster = true; stats, order = {}, {}
+    else P.noraster = false; P.set(false) end
+end
+function P.label() return P.on and (P.noraster and "SANS TRACE" or "OUI") or "NON" end
 
 function P.updBegin() if P.on then tU = now() end end
 function P.updEnd(dt)
