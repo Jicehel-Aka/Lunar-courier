@@ -42,7 +42,7 @@ function R.keypressed(key,isrepeat)
 end
 local function rect(x,y,w,h) love.graphics.rectangle("fill",x,y,w,h) end
 local function color(r,g,b) love.graphics.setColor(r/255,g/255,b/255) end
-function R.draw(ui)
+function R.draw(ui, sprites)
     if not st then R.reset() end
     local g=love.graphics
     color(3,8,20); rect(0,0,640,480); color(10,22,39); rect(0,82,640,280)
@@ -60,9 +60,19 @@ function R.draw(ui)
     color(60,86,101); rect(0,363,640,7); color(30,52,70); rect(0,370,640,110)
     for i=0,15 do color(37,57,71); rect(i*44+8,390,2,72) end
     for i=0,11 do local on=st.inserted and math.floor(st.t*4+i)%3~=0; color(on and 68 or 40,on and 214 or 75,on and 211 or 89); rect(22+i*51,356,28,3) end
-    color(2,7,14); rect(st.x-12,357,24,4); color(27,49,66); rect(st.x-9,326,18,27); rect(st.x-st.facing*12,331,7,18)
-    color(183,199,208); rect(st.x-8,350,7,5); rect(st.x+1,350,7,5); color(218,229,230); rect(st.x-9,306,18,20)
-    color(15,43,61); rect(st.x-7,310,14,10); color(68,201,215); rect(st.x-st.facing*3,312,6,5); color(255,190,79); rect(st.x-10,322,20,4)
+    local frames = sprites and (sprites[st.console and "interaction" or (st.facing < 0 and "walk_left" or "walk_right")]) or nil
+    local sprite = frames and frames[st.console and 1 or (1 + math.floor(st.t*7)%4)] or nil
+    if sprite and sprite.getDimensions then
+        local sw, sh = sprite:getDimensions()
+        local targetH = 76
+        local scale = targetH / math.max(1, sh)
+        color(255,255,255)
+        love.graphics.draw(sprite, st.x-sw*scale*0.5, 357-targetH, 0, scale, scale)
+    else
+        color(2,7,14); rect(st.x-12,357,24,4); color(27,49,66); rect(st.x-9,326,18,27); rect(st.x-st.facing*12,331,7,18)
+        color(183,199,208); rect(st.x-8,350,7,5); rect(st.x+1,350,7,5); color(218,229,230); rect(st.x-9,306,18,20)
+        color(15,43,61); rect(st.x-7,310,14,10); color(68,201,215); rect(st.x-st.facing*3,312,6,5); color(255,190,79); rect(st.x-10,322,20,4)
+    end
     ui.panel(22,14,596,66); ui.centered("M5 // LE COEUR SILENCIEUX",24,ui.f24,{133,239,231})
     local obj=not st.inserted and "OBJECTIF : INSERER LE MODULE" or (st.solved and "PHASE STABLE - REACTEUR EN LIGNE" or (st.console and "CONSOLE // SYNCHRONISATION" or "OBJECTIF : REGLER LA PHASE DU REACTEUR"))
     ui.centered(obj,55,ui.f16,{255,190,79})
