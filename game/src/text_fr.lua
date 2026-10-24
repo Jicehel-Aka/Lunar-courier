@@ -113,6 +113,8 @@ return {
   },
   post={
    {"TRANSMISSION RECUE", "Argo-2 s'illumine d'un coup. Les balises de la face cachee rejoignent le reseau : pour la premiere fois, la Lune entiere brille dans la nuit."},
+  },
+  post2={
    {"LE CAISSON S'OUVRE", "Le caisson s'ouvre dans un souffle de givre. Le commandant Ines Varga ouvre les yeux.\n\nVARGA : Onze ans... Tu as mis du temps, Courier.\n\nPuis, plus bas, elle ajoute :\n\nVARGA : Il reste un dernier colis a livrer."},
    {"FIN DU CHAPITRE 2", "Le reseau est complet, de la face visible a la face cachee. Sur la plateforme d'Argo-2, deux silhouettes regardent la route de lumiere s'etirer vers le nord, vers une montagne que personne n'a jamais cesse de viser."},
   },

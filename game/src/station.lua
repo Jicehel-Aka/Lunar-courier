@@ -6,10 +6,11 @@
 -- Module sans etat global : game.lua appelle reset / update / interact / draw.
 -- Ecran virtuel 640x480, texte ASCII, polygones interdits (rectangles seulement).
 local S = {}
+local T = function(...) return require("src.i18n").t(...) end
 
 local ROOMS = 4
 S.ROOMS = ROOMS
-S.names = {"SAS D'ACCES", "COULOIR DE SERVICE", "SALLE D'ENERGIE", "ARCHIVES"}
+function S.name(r) return T("st_n"..r) end
 
 local LIGHT = {0.62, 0.8, 0.95, 1.12}      -- la station se rallume piece apres piece
 local FLOOR_Y = 451
@@ -23,34 +24,21 @@ local ITEMS = {
 }
 
 -- Textes : au plus ~90 caracteres (console de LUNA : 4 lignes de 24).
-local NOTES = {
-    r1  = "PLAQUE : ARGO, RELAIS LUNAIRE. EQUIPAGE : 1. V. VARGA, INGENIEURE.",
-    r2  = "NOTICE : redemarrage en 3 temps. Relais 1, puis 2, puis 3, de gauche a droite.",
-    r3a = "NOTE DE VARGA : le journal ne se lit pas dans le noir. Il faut de la lumiere.",
-    r3b = "NOTE DE VARGA : reserve de 6 unites. Sas 2, balise 1, eclairage 1, journal 3.",
-}
-local PAGES = {
-    "VARGA, JOUR 12 : plus de relais. Je garde la balise allumee, quoi qu'il arrive.",
-    "VARGA, JOUR 30 : quelqu'un nettoie les panneaux solaires. Ce n'est pas moi.",
-    "SIGNAL RECU 00:00:03 AVANT SON EMISSION. IMPOSSIBLE. Il vient de la face cachee.",
-}
-local ARRIVE = {
-    "LUNA : Sas interieur. Appuyez sur la console pres de la porte.",
-    "LUNA : Un couloir de service. Les relais sont numerotes. Cherchez la notice.",
-    "LUNA : La salle d'energie. Varga a laisse des notes sur les murs.",
-    "LUNA : Les archives. Quelqu'un a nettoye ici. Tres recemment.",
-}
+local function NOTE(id) return T("st_"..id) end
+local function PAGE(n) return T("st_p"..n) end
+local function ARRIVE(r) return T("st_a"..r) end
 
 -- Mini-jeu d'energie : reserve de 6 unites, il faut SAS + JOURNAL, et le journal exige l'ECLAIRAGE.
 local CIRCUITS = {
-    {id="sas",     label="SAS",       cost=2},
-    {id="balise",  label="BALISE",    cost=1},
-    {id="light",   label="ECLAIRAGE", cost=1},
-    {id="journal", label="JOURNAL",   cost=3},
+    {id="sas",     cost=2},
+    {id="balise",  cost=1},
+    {id="light",   cost=1},
+    {id="journal", cost=3},
 }
 local BUDGET = 6
 S.BUDGET = BUDGET
 S.CIRCUITS = CIRCUITS
+local function label(c) return T("st_c_"..c.id) end
 
 local st
 
@@ -65,7 +53,7 @@ function S.enter(r)
     st.room = r
     if not st.visited[r] then
         st.visited[r] = true
-        st.msg, st.msgD = ARRIVE[r], 4.5
+        st.msg, st.msgD = ARRIVE(r), 4.5
     end
 end
 
@@ -134,65 +122,65 @@ S.nearest = nearest
 
 function S.objective()
     local r = st.room
-    if r == 1 then return st.door[1] and "SAS OUVERT - COULOIR" or "SAS : APPUYER SUR LA CONSOLE" end
-    if r == 2 then return st.repairs >= 3 and "RELAIS 3/3 - PORTE OUVERTE" or ("RELAIS  "..st.repairs.."/3") end
-    if r == 3 then return st.solved and "ENERGIE OK - PORTE OUVERTE" or "ENERGIE : SAS + JOURNAL" end
-    return st.logRead and "RAPPORT COPIE - ACCES AU SAS" or ("JOURNAL DE VARGA  "..st.pages.."/3")
+    if r == 1 then return T(st.door[1] and "st_h1o" or "st_h1c") end
+    if r == 2 then return st.repairs >= 3 and T("st_h2o") or T("st_h2c", st.repairs) end
+    if r == 3 then return T(st.solved and "st_h3o" or "st_h3c") end
+    return st.logRead and T("st_h4o") or T("st_h4c", st.pages)
 end
 
 function S.hint()
     local r = st.room
-    if r == 1 then return st.door[1] and "La porte est ouverte. Avancez a droite." or "Appuyez sur la console, pres de la porte." end
+    if r == 1 then return T(st.door[1] and "st_ob1o" or "st_ob1c") end
     if r == 2 then
-        if st.repairs >= 3 then return "Le reseau est stable. Avancez a droite." end
-        return "Relancer les relais dans l'ordre. La notice est a gauche."
+        if st.repairs >= 3 then return T("st_ob2o") end
+        return T("st_ob2c")
     end
     if r == 3 then
-        if st.solved then return "Energie repartie. La porte est ouverte." end
-        return "Lisez les notes, puis utilisez la console de la porte."
+        if st.solved then return T("st_ob3o") end
+        return T("st_ob3c")
     end
-    if st.logRead then return "Rapport copie. Rejoignez la console du sas." end
-    return "Consultez le journal sur le terminal central."
+    if st.logRead then return T("st_ob4o") end
+    return T("st_ob4c")
 end
 
 -- Action du joueur a la position x. Retourne (message, evenement) ; evenement "ok" ou "exit".
 function S.interact(x)
     if st.mode ~= "walk" then return nil end
     local it = nearest(x)
-    if not it then return "LUNA : Approchez-vous d'une console ou d'un panneau.", nil end
+    if not it then return T("st_m_near"), nil end
     local r = st.room
     if it.k == "note" then
-        return NOTES[it.id], "ok"
+        return NOTE(it.id), "ok"
     elseif it.k == "door" then
         if r == 1 then
-            if st.door[1] then return "La porte est deja ouverte.", nil end
+            if st.door[1] then return T("st_m_open1"), nil end
             st.door[1] = true
-            return "Porte ouverte. LUNA : Rien n'a coupe l'alimentation du sas. Etrange.", "ok"
+            return T("st_m_open1b"), "ok"
         end
-        if st.repairs < 3 then return "Porte verrouillee : circuits hors service. Relancez les relais.", nil end
-        return "La porte est ouverte.", nil
+        if st.repairs < 3 then return T("st_m_lock2"), nil end
+        return T("st_m_open2"), nil
     elseif it.k == "relay" then
-        if st.repairs >= 3 or it.id <= st.repairs then return "Ce relais est deja actif.", nil end
-        if it.id ~= st.repairs + 1 then return "LUNA : Pas dans cet ordre. La notice dit : 1, puis 2, puis 3.", nil end
+        if st.repairs >= 3 or it.id <= st.repairs then return T("st_m_act"), nil end
+        if it.id ~= st.repairs + 1 then return T("st_m_ord"), nil end
         st.repairs = it.id
-        if it.id == 1 then return "LUNA : Relais 1 stable. Un circuit etait deja alimente. Par qui ?", "ok" end
-        if it.id == 2 then return "LUNA : Deux relais actifs. Le signal ne vient pas de la station...", "ok" end
+        if it.id == 1 then return T("st_m_rel1"), "ok" end
+        if it.id == 2 then return T("st_m_rel2"), "ok" end
         st.door[2] = true
-        return "LUNA : Reseau restaure. Ce signal ne figure sur aucune carte. La porte s'ouvre.", "ok"
+        return T("st_m_rel3"), "ok"
     elseif it.k == "energy" then
-        if st.solved then return "La repartition d'energie est correcte. La porte est ouverte.", nil end
-        st.mode, st.sel, st.status = "energy", 1, "Alimentez le SAS et le JOURNAL."
+        if st.solved then return T("st_m_enok"), nil end
+        st.mode, st.sel, st.status = "energy", 1, T("st_m_enst")
         return nil, "ok"
     elseif it.k == "journal" then
         if st.pages < 3 then
             st.pages = st.pages + 1
             if st.pages == 3 then st.logRead = true end
-            return PAGES[st.pages], "ok"
+            return PAGE(st.pages), "ok"
         end
-        return PAGES[3], nil
+        return PAGE(3), nil
     elseif it.k == "exit" then
-        if not st.logRead then return "Console verrouillee : lisez d'abord le journal de Varga.", nil end
-        return "RAPPORT VARGA copie. Ouverture du sas.", "exit"
+        if not st.logRead then return T("st_m_lockj"), nil end
+        return T("st_m_exit"), "exit"
     end
 end
 
@@ -213,25 +201,25 @@ function S.key(k)
         local c = CIRCUITS[st.sel]
         if st.power[c.id] then
             st.power[c.id] = false
-            st.status = c.label.." coupe."
+            st.status = T("st_cut", label(c))
         elseif used() + c.cost > BUDGET then
             st.fails, st.flash = st.fails + 1, 0.5
-            st.status = "SURCHARGE : la reserve est de "..BUDGET.." unites. Coupez un circuit."
+            st.status = T("st_over", BUDGET)
             return true, "bad"
         else
             st.power[c.id] = true
-            st.status = c.label.." alimente."
+            st.status = T("st_on", label(c))
         end
         if st.power.journal and not st.power.light then
-            st.status = "Le journal est allume mais illisible : il fait noir."
+            st.status = T("st_dark")
             st.fails = st.fails + 1
         elseif not st.power.sas then
-            st.status = st.status.." Le SAS doit rester alimente."
+            st.status = st.status..T("st_keep")
         end
         if isSolved() then
             st.solved, st.door[3], st.mode = true, true, "walk"
             if st.power.balise then st.power.balise = false end
-            say("Energie repartie. Balise coupee... mais le signal continue d'arriver. La porte s'ouvre.", 5)
+            say(T("st_solved"), 5)
             return true, "solved"
         end
         return true, "ok"
@@ -468,7 +456,7 @@ function S.drawEnergy(ui)
     local g = love.graphics
     ui.panel(60, 96, 520, 346)
     g.setFont(ui.f16)
-    ui.color(255, 177, 78); g.printf("RESEAU D'ENERGIE - ARGO", 84, 106, 472, "left")
+    ui.color(255, 177, 78); g.printf(T("st_net"), 84, 106, 472, "left")
     ui.color(43, 205, 211); ui.rect(74, 130, 492, 1)
     for i, c in ipairs(CIRCUITS) do
         local y = 140 + (i - 1) * 42
@@ -478,14 +466,14 @@ function S.drawEnergy(ui)
             ui.color(255, 190, 79); g.printf(">", 80, y, 20, "left")
         end
         ui.color(on and 135 or 120, on and 239 or 140, on and 231 or 150)
-        g.printf(c.label, 108, y, 160, "left")
+        g.printf(label(c), 108, y, 160, "left")
         ui.color(255, 190, 98); g.printf(c.cost.." U", 280, y, 60, "left")
         if on then ui.color(75, 220, 184) else ui.color(150, 100, 90) end
         g.printf(on and "ON" or "OFF", 350, y, 50, "left")
         if c.id == "journal" and on and not st.power.light then
-            ui.color(255, 120, 90); g.printf("ILLISIBLE", 420, y, 146, "left")
+            ui.color(255, 120, 90); g.printf(T("st_unread"), 420, y, 146, "left")
         elseif c.id == "balise" and on then
-            ui.color(255, 190, 98); g.printf("EMET", 420, y, 146, "left")
+            ui.color(255, 190, 98); g.printf(T("st_emit"), 420, y, 146, "left")
         end
     end
     local yq = 140 + #CIRCUITS * 42
@@ -493,10 +481,10 @@ function S.drawEnergy(ui)
         ui.color(20, 52, 66); ui.rect(70, yq - 6, 500, 34)
         ui.color(255, 190, 79); g.printf(">", 80, yq, 20, "left")
     end
-    ui.color(160, 180, 190); g.printf("QUITTER", 108, yq, 160, "left")
+    ui.color(160, 180, 190); g.printf(T("st_quit"), 108, yq, 160, "left")
     -- jauge de reserve
     local yb = yq + 40
-    ui.color(214, 225, 230); g.printf("RESERVE", 84, yb, 120, "left")
+    ui.color(214, 225, 230); g.printf(T("st_res"), 84, yb, 120, "left")
     local u = used()
     for i = 1, BUDGET do
         if i <= u then

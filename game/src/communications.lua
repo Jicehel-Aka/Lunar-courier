@@ -4,14 +4,16 @@ local C = {}
 local st
 local I = require("src.i18n")
 local TX = require("src.communications_text")
+local Gen = require("src.interiors")   -- interieurs de M10, M11 et M12 (meme moteur, autres donnees)
 local function T(k)
   local t = TX[I.lang] or TX.fr
   return I.expand(t[k] or TX.fr[k] or "")
 end
 local function say(s, d) st.msg, st.msgD = s, d or 4 end
-function C.reset()
+-- kind : nil = relais de M9 ; "wreck" / "argo2" / "caisson" = interieurs generiques (interiors.lua)
+function C.reset(kind)
   st = {room=1, doors={false,false}, t=0, mode="walk", visited={}, msg=nil, msgD=0,
-        checked=false, repaired=false, aligned=false}
+        checked=false, repaired=false, aligned=false, kind=kind, step={false,false,false}}
   C.s = st
   C.enter(1)
 end
@@ -19,7 +21,7 @@ function C.enter(r)
   st.room=r
   if not st.visited[r] then
     st.visited[r]=true
-    say(T("intro"..r),5)
+    say(st.kind and Gen.T(st.kind,"intro"..r) or T("intro"..r),5)
   end
 end
 function C.takeMsg()
@@ -44,20 +46,31 @@ function C.update(dt, ex)
     st.mode,st.tt,st.switched,st.to,st.dir="transit",0,false,st.room-1,-1
   end
 end
-function C.title() return T("header") end
+function C.title() return st.kind and Gen.T(st.kind,"header") or T("header") end
 function C.actionHint() return I.t("explore_keys") end
 function C.objective()
+  if st.kind then return Gen.T(st.kind,"obj"..st.room..(st.step[st.room] and "done" or "")) end
   if st.room==1 then return st.doors[1] and T("obj1done") or T("obj1")
   elseif st.room==2 then return st.repaired and T("obj2done") or T("obj2")
   else return st.aligned and T("obj3done") or T("obj3") end
 end
 function C.hint()
+  if st.kind then return Gen.G(st.step[st.room] and "hintdone" or "hint") end
   if st.room==1 then return st.doors[1] and T("hint1done") or T("hint1")
   elseif st.room==2 then return st.repaired and T("hint2done") or T("hint2")
   else return st.repaired and T("hint3done") or T("hint3") end
 end
 function C.interact(x)
   if st.mode~="walk" then return nil end
+  if st.kind then
+    local r=st.room
+    if math.abs(x-Gen.kinds[st.kind].marker[r])>46 then return Gen.G("far"),nil end
+    if st.step[r] then return Gen.G("done"),nil end
+    st.step[r]=true
+    if r<3 then st.doors[r]=true end
+    if r==3 then st.aligned=true; return Gen.T(st.kind,"act3"), "done" end
+    return Gen.T(st.kind,"act"..r), "ok"
+  end
   if st.room==1 then
     if math.abs(x-470)>42 then return T("panelfar"),nil end
     if not st.checked then st.checked=true; return T("panelcheck"), "ok" end
@@ -75,10 +88,15 @@ function C.interact(x)
     return T("signal"), "signal"
   end
 end
-local function col(r,g,b) love.graphics.setColor(r/255,g/255,b/255) end
+local tint=nil
+local function col(r,g,b)
+  if tint then r,g,b=tint(r,g,b) end
+  love.graphics.setColor(r/255,g/255,b/255)
+end
 local function rect(x,y,w,h) love.graphics.rectangle("fill",x,y,w,h) end
 function C.draw(ex)
   local g=love.graphics; local r=st.room
+  tint=st.kind and Gen.kinds[st.kind].tint or nil
   col(3,8,19); rect(0,0,640,480)
   -- murs industriels, conduites et nervures; chaque salle a sa signature lumineuse.
   col(13,28,43); rect(0,0,640,116); rect(0,280,640,200)
@@ -106,7 +124,11 @@ function C.draw(ex)
     col(st.doors[i] and 64 or 255,st.doors[i] and 220 or 177,st.doors[i] and 210 or 79)
     rect(x-4,198,8,4); rect(x-4,218,8,4)
   end
-  if r==1 then
+  if st.kind then
+    local mx=Gen.kinds[st.kind].marker[r]
+    Gen.console(col,rect,mx,st.step[r])
+    Gen.props(st.kind,r,st,col,rect)
+  elseif r==1 then
     -- panneau de securite
     col(30,54,70); rect(426,308,88,112); col(8,21,35); rect(435,318,70,88)
     col(255,179,78); rect(444,330,52,4); col(st.checked and 66 or 110,st.checked and 222 or 95,st.checked and 204 or 86)
@@ -133,6 +155,8 @@ function C.draw(ex)
   -- marqueur d'interaction : petit chevron ambre au-dessus du terminal actif
   local tx=(r==1 and 470) or (r==2 and 310) or 470
   local active=(r==1 and not st.doors[1]) or (r==2 and not st.repaired) or (r==3 and st.repaired and not st.aligned)
+  if st.kind then tx=Gen.kinds[st.kind].marker[r]; active=not st.step[r] end
   if active then col(255,190,79); rect(tx-5,285,10,3); rect(tx-2,280,4,5) end
+  tint=nil
 end
 return C

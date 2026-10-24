@@ -12,6 +12,8 @@ local Signal  = require("src.signal")
 local Dis     = require("src.disembark")
 local Reactor = require("src.reactor")
 local Communications = require("src.communications")
+local Interiors = require("src.interiors")
+local Cinematic = require("src.cinematic")
 local Perf = require("src.perf")
 local Game = {}
 
@@ -24,8 +26,16 @@ local THRUST     = 105     -- poussee (px/s2)
 local TURN       = 2.25    -- rotation (rad/s)
 local SAFE_VY    = 38      -- vitesse verticale max pour se poser
 local SAFE_VX    = 40      -- vitesse horizontale max pour se poser
-local SAFE_ANGLE = 0.30    -- inclinaison max pour se poser (rad)
-local CRASH_VY   = 75      -- au-dessus : rebond qui abime la coque
+local SAFE_ANGLE = 0.12    -- inclinaison max pour se poser (rad, ~7 deg)
+-- Degats d un choc avec le sol : croissent avec la vitesse verticale (au-dela de 30), la vitesse horizontale
+-- (au-dela de 40) et l inclinaison (au-dela de SAFE_ANGLE, d autant plus que le choc est rapide).
+-- Un contact doux (vitesse < 30, droit) ne coute rien ; un impact a 100 px/s de travers detruit presque tout.
+local function impactDamage(vx, vy, angle)
+    local v = math.abs(vy)
+    local d = math.max(0, v - 30) * 0.45 + math.max(0, math.abs(vx) - 40) * 0.2
+    d = d + math.max(0, math.abs(angle) - 0.12) * 40 * math.min(2, math.max(0.5, v / 60))
+    return math.min(100, math.floor(d + 0.5))
+end
 local FEET       = 12      -- distance centre -> pieds du vaisseau
 local PAD_HALF   = 39      -- demi-largeur d'une zone d'atterrissage
 local TOP_LIMIT  = 70      -- plafond (sous le HUD)
@@ -298,7 +308,7 @@ local function startMission(i)
     missionIndex = i
     resetMission()
     explore.fuelMul, explore.nextMul = explore.nextMul or 1, 1
-    if explore.fuelMul < 1 then setMessage("LUNA : Signal accorde. Consommation -"..math.floor((1-explore.fuelMul)*100+0.5).." %.", 4) end
+    if explore.fuelMul < 1 then setMessage(I.t("g_sig", math.floor((1-explore.fuelMul)*100+0.5)), 4) end
     state = "game"
 end
 
@@ -426,6 +436,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Mise a jour
 -- ---------------------------------------------------------------------------
+local interiorDone   -- definie plus bas (a besoin de showCards)
 local function updateExplore(dt)
     explore.t = explore.t + dt
     local keys = I.moveKeys()
@@ -474,11 +485,24 @@ local function updateExplore(dt)
         if sm then toast, toastT = sm, sd end
         explore.repairs, explore.repaired, explore.logRead = Station.s.repairs, Station.s.solved, Station.s.logRead
     end
+    -- Fin d'une scene a pied (M10-M12) : on laisse lire le dernier message avant de poursuivre.
+    if explore.leaveT then
+        explore.leaveT = explore.leaveT - dt
+        if explore.leaveT <= 0 then explore.leaveT = nil; interiorDone() end
+    end
     Audio.thrust(false)
 end
 
-local beginMission
+local beginMission, backToTitle
 local function updateInterlude(dt)
+    if state == "cinematic" then
+        if Cinematic.update(dt) then
+            local nextI = Cinematic.finish()
+            if nextI > #Data.missions then backToTitle() else beginMission(nextI) end
+        end
+        Audio.thrust(false)
+        return
+    end
     if state == "reactor" then
         if Reactor.update(dt) then unloadExplorerSprites(); beginMission(explore.nextI or 6) end
         Audio.thrust(false)
@@ -525,7 +549,7 @@ function Game.update(dt)
         if p.life <= 0 then table.remove(particles, i) end
     end
     if state == "explore" then updateExplore(dt); return end
-    if state == "signal" or state == "disembark" or state == "reactor" then updateInterlude(dt); return end
+    if state == "signal" or state == "disembark" or state == "reactor" or state == "cinematic" then updateInterlude(dt); return end
     if state ~= "game" or paused or ship.landed or failed then Audio.thrust(false); return end
 
     local m = mission()
@@ -643,6 +667,16 @@ function Game.update(dt)
                 note("nocargo", I.t("no_cargo"), 2.5, 4)
             end
         elseif math.abs(ship.vy) < 60 then
+            if math.abs(impact) > 14 and ship.hitCooldown <= 0 then
+                local dmg = impactDamage(ship.vx, impact, ship.angle)
+                if dmg >= 2 then
+                    hull = math.max(0, hull - dmg)
+                    ship.hitCooldown = 0.5; shakeT = 0.25
+                    addParticles(ship.x, ship.y + FEET, 6, "spark")
+                    Audio.play("hit")
+                    if hull <= 0 then failMission(I.t("hull_broken")) end
+                end
+            end
             -- Contact doux : le vaisseau se pose toujours (plus de micro-rebonds repetes sur une pente ou
             -- incline) ; s'il est trop penche (> 0,5 rad) il se redresse de lui-meme sur ses jambes.
             ship.vy = 0
@@ -660,9 +694,14 @@ function Game.update(dt)
                 note("tilt", I.t("tilt"), 2, 5)
             end
         else
-            if math.abs(impact) > CRASH_VY then
-                hull = math.max(0, hull - 12)
-                if hull <= 0 then failMission(I.t("hull_broken")) end
+            if ship.hitCooldown <= 0 then
+                local dmg = impactDamage(ship.vx, impact, ship.angle)
+                if dmg >= 2 then
+                    hull = math.max(0, hull - dmg)
+                    ship.hitCooldown = 0.5; shakeT = 0.3
+                    addParticles(ship.x, ship.y + FEET, 8, "spark")
+                    if hull <= 0 then failMission(I.t("hull_broken")) end
+                end
             end
             ship.vy = -math.min(math.abs(ship.vy)*0.38 + 10, 65)
             ship.vx = ship.vx * 0.62
@@ -1685,7 +1724,7 @@ function Game.draw()
         -- HUD diegetique
         panel(22,20,596,68)
         color(79,221,213); rect(36,34,4,36)
-        centered(explore.site == "comms" and (Communications.title().."  "..Communications.s.room.."/3") or ("STATION ARGO  "..Station.s.room.."/"..Station.ROOMS), 34, explore.site == "comms" and fonts.f16 or fonts.f24, {135,239,231})
+        centered(explore.site == "comms" and (Communications.title().."  "..Communications.s.room.."/3") or I.t("g_stat", Station.s.room, Station.ROOMS), 34, explore.site == "comms" and fonts.f16 or fonts.f24, {135,239,231})
         local objective = explore.site == "comms" and Communications.objective() or Station.objective()
         centered(objective, 63, fonts.f16, {214,225,230})
         -- Console de LUNA : un grand ecran en haut a gauche, le texte s'y ecrit lettre par lettre.
@@ -1697,7 +1736,7 @@ function Game.draw()
         color(43,205,211); rect(cx+10, cy+27, cw-20, 1)
         love.graphics.setFont(fonts.f16.obj)
         color(255,177,78)
-        love.graphics.printf("LUNA // SIGNAL INSTABLE", cx+14, cy+7, cw-28, "left")
+        love.graphics.printf(I.t("g_unst"), cx+14, cy+7, cw-28, "left")
         local msg
         if toastT > 0 and toast ~= "" then msg = toast
         else msg = explore.site == "comms" and Communications.hint() or Station.hint() end
@@ -1734,6 +1773,8 @@ function Game.draw()
         drawDisembark()
     elseif state == "signal" then
         Signal.draw({color=color, rect=rect, panel=panel, f16=fonts.f16.obj, f24=fonts.f24.obj})
+    elseif state == "cinematic" then
+        Cinematic.draw({f16=fonts.f16.obj, f24=fonts.f24.obj, f32=fonts.f32.obj}, I.lang, I.t("card_next"))
     elseif state == "instructions" then
         drawSky(); drawRidges(); drawTerrain(); drawHelp("card_next")
     else
@@ -1775,7 +1816,7 @@ function beginMission(i)
     showCards(i, "pre", function() startMission(i) end, m.sky, "card_launch")
 end
 
-local function backToTitle()
+backToTitle = function()
     skyOverride = nil
     titleAnim = 0
     missionIndex = 1
@@ -1785,13 +1826,28 @@ local function backToTitle()
     state = "title"
 end
 
+-- Fin d'une scene a pied de M10-M12 : M12 enchaine les cartes d'apres (reveil de Varga) puis la cinematique.
+interiorDone = function()
+    toastT = 0
+    unloadExplorerSprites()
+    local kind = Communications.s and Communications.s.kind
+    explore.site = nil
+    if kind == "caisson" then
+        showCards(12, "post2", function() Cinematic.start(2, explore.nextI); state = "cinematic" end,
+                  Data.missions[12].sky, "card_nextm")
+    else
+        beginMission(explore.nextI)
+    end
+end
+
 local function afterDebrief()
     local m = mission()
     local nextI = missionIndex + 1
     if nextI > #Data.missions then
-        showCards(missionIndex, "post", backToTitle, m.sky, "card_title")
+        showCards(missionIndex, "post", function() Cinematic.start(3, nextI); state = "cinematic" end, m.sky, "card_title")
     else
         showCards(missionIndex, "post", function()
+            if missionIndex == 6 then Cinematic.start(1, nextI); state = "cinematic"; return end
             local site = Dis.siteFor(missionIndex)
             if site then
                 local from = missionIndex
@@ -1808,13 +1864,14 @@ local function afterDebrief()
                         explore.nextI = nextI
                         Reactor.reset()
                         state = "reactor"
-                    elseif from == 9 then
+                    elseif from == 9 or Interiors.kindOfMission[from] then
                         explore.site = "comms"
                         explore.nextI = nextI
+                        explore.leaveT = nil
                         explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0
                         explore.vx, explore.walkT, explore.interactT, explore.landT = 0, 0, 0, 0
                         explore.facing, explore.grounded = 1, true
-                        Communications.reset()
+                        Communications.reset(Interiors.kindOfMission[from])
                         state = "explore"
                     else
                         unloadExplorerSprites()
@@ -1825,7 +1882,15 @@ local function afterDebrief()
                 end)
                 state = "disembark"
             else
-                beginMission(nextI)
+                -- Intermissions jouables supplementaires : les Lucioles (M15),
+                -- le contact avec la Terre (M16) et l'accord final du Phare (M17).
+                if Signal.has(missionIndex) then
+                    explore.nextI = nextI
+                    Signal.start(missionIndex)
+                    state = "signal"
+                else
+                    beginMission(nextI)
+                end
             end
         end, m.sky, "card_nextm")
     end
@@ -1926,6 +1991,12 @@ function Game.keypressed(key, scancode, isrepeat)
         end
     elseif state == "instructions" then
         if confirm(key) then Audio.play("menu"); beginMission(1) end
+    elseif state == "cinematic" then
+        -- passer seulement quand l invite est affichee (evite de sauter la scene d un appui de trop)
+        if confirm(key) and not isrepeat and Cinematic.s.t >= 5 then
+            local nextI = Cinematic.finish()
+            if nextI > #Data.missions then backToTitle() else beginMission(nextI) end
+        end
     elseif state == "card" then
         local cur = cardsOf()[cardIdx]
         if confirm(key) and cur and math.floor(cardT * 70) < #cur[2] then
@@ -1978,7 +2049,9 @@ function Game.keypressed(key, scancode, isrepeat)
             else m, ev = Station.interact(explore.x) end
             if m and ev ~= "signal" then toast, toastT = m, 5 end
             if ev then Audio.play("menu") end
-            if ev == "signal" then
+            if ev == "done" then
+                explore.leaveT = 4.5
+            elseif ev == "signal" then
                 toastT = 0
                 unloadExplorerSprites()
                 explore.site = nil
@@ -1992,14 +2065,10 @@ function Game.keypressed(key, scancode, isrepeat)
                 else
                     state="title"
                     buildMenu()
-                    toast="Rapport copie. Les systemes sont de nouveau operationnels. Rejoignons le sas."
+                    toast=I.t("g_rep")
                     toastT=5
                 end
             end
-        elseif key == "escape" then
-            unloadExplorerSprites()
-            state="title"
-            buildMenu()
         end
     elseif state == "disembark" then
         if (confirm(key) or key == "e" or key == "a") and not isrepeat then Dis.skip() end

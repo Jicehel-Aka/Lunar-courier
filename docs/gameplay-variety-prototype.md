@@ -6,7 +6,7 @@ Valider une séquence scénarisée qui rompt le rythme du pilotage sans transfor
 
 ## Accès au prototype
 
-Sur l'écran titre, appuyer sur `E` sur PC pour lancer la salle de démonstration. Cette entrée est volontairement optionnelle : elle ne modifie pas le déroulement normal des 18 missions pendant la phase de test. Sur AKA, ce prototype n'est pas encore associé à un bouton physique.
+Sur l'écran titre, appuyer sur `E` sur PC pour lancer la salle de démonstration. Cette entrée est volontairement optionnelle : elle ne modifie pas le déroulement normal des 18 missions pendant la phase de test. Sur AKA, la même salle se lance avec le bouton `D` ; l'écran titre l'indique.
 
 ## Première tranche verticale
 

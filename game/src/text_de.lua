@@ -113,6 +113,8 @@ return {
   },
   post={
    {"NACHRICHT EMPFANGEN", "Argo-2 leuchtet mit einem Schlag auf. Die Baken der Rueckseite schliessen sich dem Netz an: Zum ersten Mal strahlt der ganze Mond in der Nacht."},
+  },
+  post2={
    {"KAPSEL OEFFNET SICH", "Die Kapsel oeffnet sich in einem Hauch von Frost. Kommandantin Ines Varga schlaegt die Augen auf.\n\nVARGA : Elf Jahre... Du hast dir Zeit gelassen, Courier.\n\nDann fuegt sie leiser hinzu:\n\nVARGA : Ein letztes Paket ist noch zu liefern."},
    {"ENDE VON KAPITEL 2", "Das Netz ist vollstaendig, von der Vorder- bis zur Rueckseite. Auf der Plattform von Argo-2 sehen zwei Silhouetten die Lichterstrasse nach Norden laufen, zu einem Berg, den nie jemand aus dem Blick verlor."},
   },

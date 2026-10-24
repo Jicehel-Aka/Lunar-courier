@@ -113,6 +113,8 @@ return {
   },
   post={
    {"TRANSMISSAO RECEBIDA", "Argo-2 se acende de uma so vez. Os farois do lado oculto se juntam a rede: pela primeira vez, a Lua inteira brilha na noite."},
+  },
+  post2={
    {"A CAPSULA SE ABRE", "A capsula se abre num sopro de geada. A comandante Ines Varga abre os olhos.\n\nVARGA : Onze anos... Voce demorou, Courier.\n\nDepois, mais suave, ela acrescenta:\n\nVARGA : Resta um ultimo pacote a entregar."},
    {"FIM DO CAPITULO 2", "A rede esta completa, do lado visivel ao lado oculto. Na plataforma de Argo-2, duas silhuetas veem a estrada de luz se estender ao norte, rumo a uma montanha que ninguem jamais deixou de mirar."},
   },

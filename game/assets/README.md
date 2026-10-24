@@ -25,8 +25,8 @@ La planche de référence « 08 — Personnages et transmissions » a été four
 
 ## Illustrations des cartes d'histoire (integrees)
 
-`scenes/*.png` : 27 panoramas (320x75 pixels, ou jusqu'a 400x75 pour un balayage lent) decoupes dans les planches
-`Lunar-Assets-1.zip` (planche "10 - Panoramas narratifs"). Chaque carte d'histoire en affiche un en bandeau ; l'association
+`scenes/*.png` : 27 panoramas (320x75 pixels, ou jusqu'a 400x75 pour un balayage lent) decoupes dans la planche
+"10 - Panoramas narratifs" (planches sources retirees du depot). Chaque carte d'histoire en affiche un en bandeau ; l'association
 carte -> image est dans `src/data.lua` (`D.art`, une entree par carte, dans l'ordre pre puis post).
 - 1 pixel d'image = 1 pixel de l'ecran AKA (dessin en echelle 2 dans le repere virtuel 640x480).
 - Chargement a la demande, 3 images au plus en memoire (`src/art.lua`) ; si une image manque ou si `newImage` n'existe

@@ -1,11 +1,12 @@
 -- M5 - Le Coeur silencieux : insertion du module et synchronisation de phase.
 local R = {}
+local function T(...) return require("src.i18n").t(...) end
 local st
 local TARGET = {1, 3, 2}
-local NAMES = {"BOBINE A", "BOBINE B", "BOBINE C"}
+local LETTERS = {"A", "B", "C"}
 function R.reset()
     st = {x=58, facing=1, inserted=false, console=false, phase={0,0,0},
-          selected=1, solved=false, t=0, message="Traversez la salle et rejoignez le logement du module.",
+          selected=1, solved=false, t=0, message=T("r_msg0"),
           msgT=8, flash=0}
 end
 function R.update(dt)
@@ -25,19 +26,19 @@ function R.keypressed(key,isrepeat)
         elseif key=="down" or key=="s" then st.phase[st.selected]=(st.phase[st.selected]+3)%4
         elseif key=="e" or key=="a" or key=="return" or key=="space" then
             if st.phase[1]==TARGET[1] and st.phase[2]==TARGET[2] and st.phase[3]==TARGET[3] then
-                st.solved=true; st.console=false; st.message="PHASE VERROUILLEE. DEMARRAGE DU REACTEUR..."; st.msgT=4; st.doneT=0
-            else say("DESACCORD DE PHASE. Ajustez les bobines selon les indicateurs.",3.5); st.flash=0.6 end
-        elseif key=="escape" or key=="x" then st.console=false; say("Console en veille. Reprenez le reglage quand vous etes pret.",3) end
+                st.solved=true; st.console=false; st.message=T("r_lock"); st.msgT=4; st.doneT=0
+            else say(T("r_bad"),3.5); st.flash=0.6 end
+        elseif key=="x" then st.console=false; say(T("r_standby"),3) end
         return
     end
     if key=="left" or key=="q" then st.x=math.max(42,st.x-34); st.facing=-1
     elseif key=="right" or key=="d" then st.x=math.min(598,st.x+34); st.facing=1
     elseif key=="e" or key=="a" or key=="return" or key=="space" then
         if not st.inserted and math.abs(st.x-286)<58 then
-            st.inserted=true; say("MODULE INSERE. Les conduites s'allument, mais le coeur refuse de demarrer.",5)
-        elseif not st.inserted then say("Le logement du module est au centre de la salle. Approchez-vous.",3)
-        elseif math.abs(st.x-520)<72 then st.console=true; st.selected=1; say("GAUCHE/DROITE : bobine. HAUT/BAS : phase. "..require("src.i18n").keyName("A").." : valider. "..require("src.i18n").keyName("B").." : quitter.",5)
-        else say("Le module est en place. La console de commandement est a droite.",3) end
+            st.inserted=true; say(T("r_ins"),5)
+        elseif not st.inserted then say(T("r_home"),3)
+        elseif math.abs(st.x-520)<72 then st.console=true; st.selected=1; say(T("r_help", require("src.i18n").keyName("A"), require("src.i18n").keyName("B")),5)
+        else say(T("r_inplace"),3) end
     end
 end
 local function rect(x,y,w,h) love.graphics.rectangle("fill",x,y,w,h) end
@@ -73,16 +74,16 @@ function R.draw(ui, sprites)
         color(183,199,208); rect(st.x-8,350,7,5); rect(st.x+1,350,7,5); color(218,229,230); rect(st.x-9,306,18,20)
         color(15,43,61); rect(st.x-7,310,14,10); color(68,201,215); rect(st.x-st.facing*3,312,6,5); color(255,190,79); rect(st.x-10,322,20,4)
     end
-    ui.panel(22,14,596,66); ui.centered("M5 // LE COEUR SILENCIEUX",24,ui.f24,{133,239,231})
-    local obj=not st.inserted and "OBJECTIF : INSERER LE MODULE" or (st.solved and "PHASE STABLE - REACTEUR EN LIGNE" or (st.console and "CONSOLE // SYNCHRONISATION" or "OBJECTIF : REGLER LA PHASE DU REACTEUR"))
+    ui.panel(22,14,596,66); ui.centered(T("r_title"),24,ui.f24,{133,239,231})
+    local obj=T(not st.inserted and "r_o1" or (st.solved and "r_o2" or (st.console and "r_o3" or "r_o4")))
     ui.centered(obj,55,ui.f16,{255,190,79})
     if st.console then
-        ui.panel(105,115,430,250); ui.centered("CALIBRAGE DES 3 BOBINES",130,ui.f16,{133,239,231})
-        for i=1,3 do local y=174+(i-1)*43; color(i==st.selected and 255 or 164,i==st.selected and 190 or 205,i==st.selected and 79 or 219); g.setFont(ui.f16.obj); g.printf(NAMES[i],132,y,150,"left")
+        ui.panel(105,115,430,250); ui.centered(T("r_cal"),130,ui.f16,{133,239,231})
+        for i=1,3 do local y=174+(i-1)*43; color(i==st.selected and 255 or 164,i==st.selected and 190 or 205,i==st.selected and 79 or 219); g.setFont(ui.f16.obj); g.printf(T("r_coil").." "..LETTERS[i],132,y,150,"left")
             for p=0,3 do color(p==st.phase[i] and 73 or 29,p==st.phase[i] and 225 or 56,p==st.phase[i] and 216 or 76); rect(292+p*35,y-2,25,22); if p==st.phase[i] then color(255,255,230); rect(300+p*35,y+5,9,7) end end
             color(st.phase[i]==TARGET[i] and 96 or 110,st.phase[i]==TARGET[i] and 230 or 130,st.phase[i]==TARGET[i] and 177 or 145); g.setFont(ui.f16.obj); g.printf(st.phase[i]==TARGET[i] and "OK" or "?",448,y,52,"left")
         end
-        color(207,222,230); g.setFont(ui.f16.obj); g.printf("Cible : A=1  B=3  C=2",132,303,370,"left"); color(255,190,79); g.printf("Q/D choisir  Z/S regler",132,326,380,"left"); g.printf("E : valider",132,346,380,"left")
+        color(207,222,230); g.setFont(ui.f16.obj); g.printf(T("r_tgt"),132,303,370,"left"); color(255,190,79); g.printf(T("r_k1"),132,326,380,"left"); g.printf(T("r_k2"),132,346,380,"left")
     end
     if st.msgT>0 and st.message then
         local lines,cur={},""

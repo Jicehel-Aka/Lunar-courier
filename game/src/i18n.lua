@@ -314,6 +314,10 @@ STR.it = {
     speakers = {{"LUNA :", {120,235,225}, "luna"}, {"VARGA :", {255,188,83}, "varga"}, {"CONTROLLO :", {140,225,150}, "controle"}},
 }
 I.STR = STR
+-- Textes d'interface complementaires (texts_extra.lua) fusionnes dans STR
+for lang, t in pairs(require("src.texts_extra")) do
+    for k, v in pairs(t) do STR[lang][k] = v end
+end
 
 local function expand(s)
     return (s:gsub("{(%u+)}", function(k) return I.keyName(k) end))
