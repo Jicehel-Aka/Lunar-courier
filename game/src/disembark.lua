@@ -135,7 +135,6 @@ local function back_varga(ui, dx, open)
     c(255, 190, 79); r(dx + 72, 276, 4, 8)
     c(46, 62, 74); r(dx - 80, 380, 150, WALL_BOTTOM - 380)                 -- tente-abri en gradins
     r(dx - 68, 352, 126, 28); r(dx - 52, 328, 94, 24); r(dx - 32, 308, 54, 20)
-    r(dx - 20, G - 420, 1200, 120)
     c(90, 112, 124); r(dx - 80, 380, 150, 2); r(dx - 68, 352, 126, 2); r(dx - 52, 328, 94, 2)
     c(6, 12, 20); r(dx - 18, 352, 36, WALL_BOTTOM - 352)                   -- entree sombre
     if open > 0 then c(150, 110, 50); r(dx - 14, 356, 28, WALL_BOTTOM - 356) end
