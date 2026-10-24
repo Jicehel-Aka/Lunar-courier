@@ -151,6 +151,7 @@ return {
 -- M16
  {name="SHADOW GORGE", objective="Cross the gorge",
   pre={
+   {"NETWORK RESTORED", "The Fireflies synchronized the beacons. Argo relay is finally sending a pulse toward Earth. A transmission window just opened.\n\nLUNA : The network is powered again. Someone is answering."},
    {"LAGRANGE CENTRE", "CONTROL : ...this is Lagrange Centre, come in... Pilot, we have been receiving your beacons since this morning. We thought the Moon was lost. Who are you?\n\nLUNA : This is the Courier, lunar delivery ship. We are lighting the road."},
    {"LAGRANGE CENTRE", "CONTROL : This is Theo Marchand, controller. Your beacons have been blinking in code for eleven years. One word, repeated. It took us a while to read it.\n\nCONTROL : ALIVE. It said: ALIVE."},
    {"BRIEFING", "LUNA : Shadow Gorge. The rays bounce off the walls there: three flashes, three rhythms.\n\nLUNA : Slip between the flashes, pilot. One touch and you lose hull, not your composure."},
