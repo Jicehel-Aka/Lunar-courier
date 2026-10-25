@@ -320,6 +320,15 @@ txt_errs = lua.eval('''(function()
     return lines
   end
   local I = require("src.i18n")
+  do  -- console de LUNA (M9) : aucun texte ne doit depasser 3 lignes de 35 (sinon il empiete sur la ligne jaune)
+    local T = require("src.communications_text")
+    for _, l in ipairs(I.langs) do
+      for k, v in pairs(T[l] or {}) do
+        local s = v:gsub("{%u+}", "A")
+        if not k:find("header") and not k:find("^actions") and not k:find("^obj") and wrapn(s, 35) > 3 then out[#out+1] = "comms "..l.." "..k.." > 3 lignes de 35" end
+      end
+    end
+  end
   for _, file in ipairs{"src.interiors_text", "src.texts_extra"} do
     local T = require(file)
     for _, l in ipairs(I.langs) do
