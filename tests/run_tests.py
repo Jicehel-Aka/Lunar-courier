@@ -320,6 +320,15 @@ txt_errs = lua.eval('''(function()
     return lines
   end
   local I = require("src.i18n")
+  do  -- console de LUNA (M9) : aucun texte ne doit depasser 3 lignes de 35 (sinon il empiete sur la ligne jaune)
+    local T = require("src.communications_text")
+    for _, l in ipairs(I.langs) do
+      for k, v in pairs(T[l] or {}) do
+        local s = v:gsub("{%u+}", "A")
+        if not k:find("header") and not k:find("^actions") and not k:find("^obj") and wrapn(s, 35) > 3 then out[#out+1] = "comms "..l.." "..k.." > 3 lignes de 35" end
+      end
+    end
+  end
   for _, file in ipairs{"src.interiors_text", "src.texts_extra"} do
     local T = require(file)
     for _, l in ipairs(I.langs) do
@@ -614,6 +623,9 @@ def run_reactor():
     for _ in range(5): key('e'); step(1)                # phases fausses : refus, indices apres 3 puis 5 echecs
     need(dbg()['state'] == 'reactor', "refus si phases fausses")
     need(int(lua.eval('require("src.reactor").s.fails')) == 5, "5 echecs comptes (x=%s ins=%s con=%s fails=%s)" % (lua.eval('require("src.reactor").s.x'), lua.eval('tostring(require("src.reactor").s.inserted)'), lua.eval('tostring(require("src.reactor").s.console)'), lua.eval('require("src.reactor").s.fails')))
+    key('x'); step(1)                                   # on peut quitter la console pour revoir les fiches
+    need(lua.eval('tostring(require("src.reactor").s.console)') == 'false', "sortie de la console sans valider")
+    key('e'); step(1)                                   # on y retourne
     for target in (1, 3, 2):
         for _ in range(target): key('up'); step(1)
         key('right'); step(1)
