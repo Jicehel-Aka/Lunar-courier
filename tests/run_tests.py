@@ -336,9 +336,9 @@ txt_errs = lua.eval('''(function()
           local w = v:gsub("%%%%", "%%"):gsub("%%[sd]", "AA")
           if (k:find("^sg_[id]%d") or k:find("^sg_[hp]")) and wrapn(w, 30) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 30" end
           if (k:find("^st_[rpaqg]%d") or k:find("^st_ob%d") or k=="st_bunk" or k:find("^st_m_") or k=="st_dark" or k=="st_solved" or k=="st_over") and wrapn(w, 35) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 35" end
-          if (k:find("^r_msg") or k=="r_lock" or k=="r_bad" or k=="r_standby" or k=="r_ins" or k=="r_home" or k=="r_help" or k=="r_inplace") and wrapn(w, 31) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 31" end
+          if (k:find("^r_msg") or k:find("^r_a%d") or k:find("^r_nt") or k:find("^r_hint") or k=="r_nothing" or k=="r_lock" or k=="r_bad" or k=="r_standby" or k=="r_ins" or k=="r_home" or k=="r_help" or k=="r_inplace") and wrapn(w, 31) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 31" end
           if (k:find("^ci_s%d") and #v > 22) or (k:find("^ci_p%d") and #v > 28) then out[#out+1] = l.." "..k.." trop long" end
-          if (k:find("^st_h") or k:find("^r_o%d") or k:find("^sg_t%d")) and #v > 38 then out[#out+1] = l.." "..k.." > 34" end
+          if (k:find("^st_h") or k:find("^r_o%d") or k:find("^r_f%d") or k:find("^sg_t%d")) and #v > 38 then out[#out+1] = l.." "..k.." > 34" end
           if k:find("_n%d%a$") and wrapn(v, 35) > 3 then out[#out+1] = l.." "..k.." feuillet > 3 lignes de 35" end
           if k:find("^dis_") and wrapn(v, 34) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 34" end
         end
@@ -592,12 +592,28 @@ def run_reactor():
     def need(cond, label):
         nonlocal ok
         if not cond: print("REACTOR FAIL:", label, dbg()['state']); FAILED.append("reactor: " + label); ok = False
-    hold('right', True); step(40); hold('right', False); step(2)    # marche continue jusqu'au logement (x ~ 286)
+    RS = lambda: lua.eval('require("src.reactor").s')
+    rm = lambda: int(lua.eval('require("src.reactor").s.room'))
+    need(rm() == 1, "demarre dans le sas (salle 1)")
+    # traverser les salles 1 a 3 en marchant et en lisant les fiches au passage
+    hold('right', True)
+    for want in (2, 3, 4):
+        n = 0
+        while rm() < want and n < 400:
+            if n % 4 == 0: key('e')
+            step(1); n += 1
+        need(rm() == want, f"passage a la salle {want}")
+    hold('right', False); step(2)
+    nread = int(lua.eval('(function() local n=0 for _ in pairs(require("src.reactor").s.read) do n=n+1 end return n end)()'))
+    need(nread == 5, f"5 fiches lues en traversant (lues: {nread})")
+    # salle 4 : marche continue jusqu'au logement (x ~ 286), insertion
+    hold('right', True); step(48); hold('right', False); step(2)
     key('e'); step(1)                                   # module insere
-    hold('right', True); step(45); hold('right', False); step(2)    # jusqu'a la console (x ~ 520)
+    hold('right', True); step(50); hold('right', False); step(2)    # jusqu'a la console (x ~ 520)
     key('e'); step(1)                                   # console
-    key('e'); step(1)                                   # phases fausses : refus
+    for _ in range(5): key('e'); step(1)                # phases fausses : refus, indices apres 3 puis 5 echecs
     need(dbg()['state'] == 'reactor', "refus si phases fausses")
+    need(int(lua.eval('require("src.reactor").s.fails')) == 5, "5 echecs comptes (x=%s ins=%s con=%s fails=%s)" % (lua.eval('require("src.reactor").s.x'), lua.eval('tostring(require("src.reactor").s.inserted)'), lua.eval('tostring(require("src.reactor").s.console)'), lua.eval('require("src.reactor").s.fails')))
     for target in (1, 3, 2):
         for _ in range(target): key('up'); step(1)
         key('right'); step(1)
