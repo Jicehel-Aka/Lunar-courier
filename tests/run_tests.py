@@ -187,7 +187,7 @@ Game._tp = function(x) explore.x = x end
 Game._interior = function(kind) require('src.communications').reset(kind); explore.site = 'comms'; explore.leaveT = nil; explore.nextI = 2; explore.x, explore.y, explore.vy, explore.t = 72, 0, 0, 0; state = 'explore' end
 Game._st = function() local S = require('src.station').s; return {room=S.room, d1=S.door[1], d2=S.door[2], d3=S.door[3], d4=S.door[4], d5=S.door[5], val=S.val, repairs=S.repairs, solved=S.solved, pages=S.pages, log=S.logRead, mode=S.mode, used=require('src.station').used(), sel=S.sel, x=explore.x} end
 Game._sg = function() local S = require('src.signal').s; return {f=S.f, p=S.p, tf=S.c.tf, tp=S.c.tp, locked=S.locked, match=S.match or 0, mul=explore.nextMul or 1} end
-Game._cm = function() local C = require('src.communications').s; return {room=C.room, checked=C.checked, repaired=C.repaired, d1=C.doors[1], d2=C.doors[2], mode=C.mode, kind=C.kind, s1=C.step[1], s2=C.step[2], s3=C.step[3], leave=explore.leaveT} end
+Game._cm = function() local C = require('src.communications').s; return {room=C.room, checked=C.checked, repaired=C.repaired, d1=C.doors[1], d2=C.doors[3], mode=C.mode, kind=C.kind, msg=toast, s1=C.step[1], s2=C.step[2], s3=C.step[3], leave=explore.leaveT} end
 Game._sgset = function(f,p) local S = require('src.signal').s; S.f, S.p = f, p end
 Game._dis = function() local D = require('src.disembark').s; return {t=D.t or 0, active=D.active and 1 or 0} end
 Game._title = function() state = 'title'; buildMenu() end
@@ -339,6 +339,7 @@ txt_errs = lua.eval('''(function()
           if (k:find("^r_msg") or k=="r_lock" or k=="r_bad" or k=="r_standby" or k=="r_ins" or k=="r_home" or k=="r_help" or k=="r_inplace") and wrapn(w, 31) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 31" end
           if (k:find("^ci_s%d") and #v > 22) or (k:find("^ci_p%d") and #v > 28) then out[#out+1] = l.." "..k.." trop long" end
           if (k:find("^st_h") or k:find("^r_o%d") or k:find("^sg_t%d")) and #v > 38 then out[#out+1] = l.." "..k.." > 34" end
+          if k:find("_n%d%a$") and wrapn(v, 35) > 3 then out[#out+1] = l.." "..k.." feuillet > 3 lignes de 35" end
           if k:find("^dis_") and wrapn(v, 34) > 3 then out[#out+1] = l.." "..k.." > 3 lignes de 34" end
         end
       end
@@ -503,7 +504,7 @@ def run_comms():
     G = 'require("src.game")'
     def cm():
         t = lua.eval(G + '._cm()')
-        return {k: t[k] for k in ('room','checked','repaired','d1','d2','mode')}
+        return {k: t[k] for k in ('room','checked','repaired','d1','d2','mode','msg')}
     def tp(x): lua.execute(G + '._tp(%d)' % x)
     ok = True
     def need(cond, label):
@@ -512,19 +513,36 @@ def run_comms():
             print("COMMS FAIL:", label, cm(), dbg()['state'])
             FAILED.append("communications: " + label)
             ok = False
+    G2 = 'require("src.interiors")'
+    def notes_ok(kind, room):
+        n = lua.eval(f'#{G2}.rooms.{kind}[{room}].notes')
+        for i in range(1, int(n) + 1):
+            x = lua.eval(f'{G2}.rooms.{kind}[{room}].notes[{i}][1]'); l = lua.eval(f'{G2}.rooms.{kind}[{room}].notes[{i}][2]')
+            tp(x); key('e'); step(1)
+            want = lua.eval(f'{G2}.T("{kind}", "n{room}{l}")')
+            need(want and cm()['msg'] == want, f"feuillet {room}{l} lisible")
+    def cross():
+        tp(500); hold('right', True); step(30); hold('right', False); step(25)
     # Salle 1 : examiner puis remettre le relais de securite sous tension.
     tp(470); key('e'); step(1)
     need(cm()['checked'] and dbg()['state']=='explore', "inspection du panneau")
     key('e'); step(1)
     need(cm()['d1'], "relais de securite retabli")
-    hold('right', True); step(30); hold('right', False); step(25)
-    need(cm()['room']==2, "passage vers le couloir technique")
-    # Salle 2 : rebrancher le boitier central.
+    notes_ok("relay", 1)
+    tp(500); hold('right', True); step(30); hold('right', False); step(25)
+    need(cm()['room']==2, "passage vers le poste de garde")
+    # Salle 2 : salle de fouille, feuillets seulement, porte ouverte d'emblee.
+    notes_ok("relay", 2)
+    cross(); need(cm()['room']==3, "passage vers le couloir technique")
+    # Salle 3 : rebrancher le boitier central.
     tp(310); key('e'); step(1)
     need(cm()['repaired'] and cm()['d2'], "connecteurs rebranches")
-    tp(500); hold('right', True); step(30); hold('right', False); step(25)
-    need(cm()['room']==3, "passage vers la salle de reception")
-    # Salle 3 : interaction avec le recepteur ouvre le mini-jeu, sans le court-circuiter.
+    notes_ok("relay", 3)
+    cross(); need(cm()['room']==4, "passage vers la salle des operateurs")
+    notes_ok("relay", 4)
+    cross(); need(cm()['room']==5, "passage vers la salle de reception")
+    notes_ok("relay", 5)
+    # Salle 5 : interaction avec le recepteur ouvre le mini-jeu, sans le court-circuiter.
     tp(470); key('e'); step(1)
     need(dbg()['state']=='signal', "le recepteur lance le mini-jeu de signal")
     return ok
@@ -536,19 +554,31 @@ def run_interior(mi, lang="fr"):
     marker = {1: 470, 2: 310, 3: 300 if kind == "wreck" else 470}
     ok = True
     def cm():
-        t = lua.eval(G + '._cm()'); return {k: t[k] for k in ('room','mode','kind','s1','s2','s3','leave')}
+        t = lua.eval(G + '._cm()'); return {k: t[k] for k in ('room','mode','kind','s1','s2','s3','leave','msg')}
     def tp(x): lua.execute(G + '._tp(%d)' % x)
     def need(cond, label):
         nonlocal ok
         if not cond: print("INTERIOR FAIL:", label, cm(), dbg()['state']); FAILED.append(f"interieur M{mi}: {label}"); ok = False
     need(cm()['kind'] == kind, "type de scene")
-    for r in (1, 2, 3):
+    G2 = 'require("src.interiors")'
+    lay = [1, 0, 2, 0, 3]
+    def notes_ok(room):
+        n = int(lua.eval(f'#{G2}.rooms.{kind}[{room}].notes'))
+        for i in range(1, n + 1):
+            x = lua.eval(f'{G2}.rooms.{kind}[{room}].notes[{i}][1]'); l = lua.eval(f'{G2}.rooms.{kind}[{room}].notes[{i}][2]')
+            tp(x); key('e'); step(1)
+            want = lua.eval(f'{G2}.T("{kind}", "n{room}{l}")')
+            need(bool(want) and cm()['msg'] == want, f"feuillet {room}{l} lisible")
+    for r in (1, 2, 3, 4, 5):
         need(cm()['room'] == r, f"salle {r}")
-        tp(marker[r] + 120); key('e'); step(1)             # trop loin : message, rien ne se passe
-        need(not cm()['s%d' % r], f"console de la salle {r} trop loin")
-        tp(marker[r]); key('e'); step(1)
-        need(cm()['s%d' % r], f"console de la salle {r}")
-        if r < 3:
+        p = lay[r - 1]
+        if p:
+            tp(marker[p] + 120); key('e'); step(1)             # trop loin : message, rien ne se passe
+            need(not cm()['s%d' % p], f"console de l'etape {p} trop loin")
+            tp(marker[p]); key('e'); step(1)
+            need(cm()['s%d' % p], f"console de l'etape {p}")
+        notes_ok(r)
+        if r < 5:
             tp(500); hold('right', True); step(30); hold('right', False); step(25)
     need(cm()['leave'] is not None, "fin de scene en attente")
     step(140)
