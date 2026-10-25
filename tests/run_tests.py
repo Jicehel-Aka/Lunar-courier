@@ -614,6 +614,9 @@ def run_reactor():
     for _ in range(5): key('e'); step(1)                # phases fausses : refus, indices apres 3 puis 5 echecs
     need(dbg()['state'] == 'reactor', "refus si phases fausses")
     need(int(lua.eval('require("src.reactor").s.fails')) == 5, "5 echecs comptes (x=%s ins=%s con=%s fails=%s)" % (lua.eval('require("src.reactor").s.x'), lua.eval('tostring(require("src.reactor").s.inserted)'), lua.eval('tostring(require("src.reactor").s.console)'), lua.eval('require("src.reactor").s.fails')))
+    key('x'); step(1)                                   # on peut quitter la console pour revoir les fiches
+    need(lua.eval('tostring(require("src.reactor").s.console)') == 'false', "sortie de la console sans valider")
+    key('e'); step(1)                                   # on y retourne
     for target in (1, 3, 2):
         for _ in range(target): key('up'); step(1)
         key('right'); step(1)

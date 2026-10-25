@@ -6,6 +6,7 @@ local function T(...) return require("src.i18n").t(...) end
 local st
 local TARGET = {1, 3, 2}
 local LETTERS = {"A", "B", "C"}
+local SLOT = {"0", "1", "2", "3"}   -- position de chaque case, en quarts de tour
 local NR = 4
 R.ROOMS = NR
 -- Fiches murales par salle : x, cle de texte
@@ -66,7 +67,7 @@ function R.keypressed(key,isrepeat)
                 st.fails=st.fails+1; st.flash=0.6
                 if st.fails>=5 then say(T("r_hint2"),5) elseif st.fails>=3 then say(T("r_hint1"),5) else say(T("r_bad"),3.5) end
             end
-        elseif key=="x" then st.console=false; say(T("r_standby"),3) end
+        elseif key=="x" or key=="escape" or key=="b" then st.console=false; say(T("r_standby"),3) end
         return
     end
     if key=="e" or key=="a" or key=="return" or key=="space" then
@@ -165,11 +166,14 @@ function R.draw(ui, sprites)
     ui.centered(obj,55,ui.f16,{255,190,79})
     if st.console then
         ui.panel(105,115,430,250); ui.centered(T("r_cal"),130,ui.f16,{133,239,231})
+        g.setFont(ui.f16.obj); color(207,222,230)
+        g.printf(T("r_unit"),132,150,150,"left")
+        for p=0,3 do g.printf(SLOT[p+1],287+p*35,150,35,"center") end
         for i=1,3 do local y=174+(i-1)*43; color(i==st.selected and 255 or 164,i==st.selected and 190 or 205,i==st.selected and 79 or 219); g.setFont(ui.f16.obj); g.printf(T("r_coil").." "..LETTERS[i],132,y,150,"left")
             for p=0,3 do color(p==st.phase[i] and 73 or 29,p==st.phase[i] and 225 or 56,p==st.phase[i] and 216 or 76); rect(292+p*35,y-2,25,22); if p==st.phase[i] then color(255,255,230); rect(300+p*35,y+5,9,7) end end
             color(st.phase[i]==TARGET[i] and 96 or 110,st.phase[i]==TARGET[i] and 230 or 130,st.phase[i]==TARGET[i] and 177 or 145); g.setFont(ui.f16.obj); g.printf(st.phase[i]==TARGET[i] and "OK" or "?",448,y,52,"left")
         end
-        color(207,222,230); g.setFont(ui.f16.obj); g.printf(T("r_unit"),132,303,370,"left"); color(255,190,79); g.printf(T("r_k1"),132,326,380,"left"); g.printf(T("r_k2"),132,346,380,"left")
+        color(207,222,230); g.setFont(ui.f16.obj); g.printf(T("r_k1"),132,303,380,"left"); color(255,190,79); g.printf(T("r_k2",require("src.i18n").keyName("A")),132,326,380,"left"); g.printf(T("r_k3",require("src.i18n").keyName("B")),132,346,380,"left")
     end
     if st.msgT>0 and st.message then
         local lines,cur={},""
